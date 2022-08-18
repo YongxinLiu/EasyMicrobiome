@@ -1,0 +1,19 @@
+# 这是gitforwindows的测试文件
+
+Chinese words are used to test default char encoding.
+
+## 测试R包是否安装成功
+
+点击下面的代码框右侧的绿色运行按钮。
+
+```{r}
+suppressPackageStartupMessages(library("ggplot2"))
+suppressPackageStartupMessages(library("DESeq2"))
+suppressPackageStartupMessages(library("RColorBrewer"))
+suppressPackageStartupMessages(library("WGCNA"))
+library(ImageGP)
+```
+
+
+
+
