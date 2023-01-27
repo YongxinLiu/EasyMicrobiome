@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.16
+版本(Version)：EasyMicrobiome v1.18
 
-更新时间(Update)：2022/8/18
+更新时间(Update)：2023/2/3
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
@@ -166,10 +166,8 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 If used this script, please cited:
 
-Tong Chen, Yong-Xin Liu, Luqi Huang. 2022. ImageGP: An easy-to-use data visualization web server for scientific researchers. iMeta 1: e5. https://doi.org/10.1002/imt2.5
+Yong-Xin Liu, Lei Chen, Tengfei Ma, Xiaofang Li, Maosheng Zheng, Xin Zhou, Liang Chen, Xu-Bo Qian, Jiao Xi, Hongye Lu, Huiluo Cao, Xiaoya Ma, Bian Bian, Pengfan Zhang, Jiqiu Wu, Ren-You Gan, Baolei Jia, Linyang Sun, Zhicheng Ju, Yunyun Gao, Tao Wen, Tong Chen. 2023. EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. iMeta 2: e83. https://doi.org/10.1002/imt2.83
 
-Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, Yang Bai. 2021. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein & Cell 12: 315-330. https://doi.org/10.1007/s13238-020-00724-8
-
-Copyright 2016-2022 Yong-Xin Liu <metagenome@126.com>, Tong Chen
+Copyright 2016-2023 Yong-Xin Liu <liuyongxin@caas.cn>, Tong Chen <chent@nrc.ac.cn>
 
 
