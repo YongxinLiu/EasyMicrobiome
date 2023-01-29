@@ -1,0 +1,5 @@
+algorithm: SAMME.R
+base_estimator: None
+learning_rate: 1.0
+n_estimators: 10000
+random_state: None

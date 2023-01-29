@@ -1,0 +1,1 @@
+./slime2.py otutab.txt design.txt --normalize --tag ab_e4 ab -n 10000
