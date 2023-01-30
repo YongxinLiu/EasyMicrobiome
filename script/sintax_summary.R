@@ -105,6 +105,8 @@ summary_abundance <- function(data, group){
 
 rank_data = summary_abundance(taxonomy_otutab, rank_column)
 
+rank_data = rank_data[order(apply(rank_data, 1, sum), decreasing = T) ,]
+
 #----3.2 保存表格 Saving#----
 filename = paste0(opts$output)
 write.table("ID\t", file = filename,

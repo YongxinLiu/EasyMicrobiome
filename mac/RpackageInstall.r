@@ -23,16 +23,25 @@ cran <- c("RColorBrewer", "gplots", "agricolae","optparse", "plotrix","igraph",
 "circlize", "vegan", "data.tree", "biomformat", "robCompositions", "multcompView", 
 "scales", "devtools","Rcpp", "RcppArmadillo", "vegan", "reshape2", 
 "gridExtra", "phyloseq",  "markovchain", "picante", "ggalluvial", 'huge', 'pulsar','VGAM', 'glmnet',
-'rgexf')
+'rgexf', 'ggraph', "edgeR", "patchwork", "robustHD")
 
 
 a = rownames(installed.packages())
 
-for(i in cran) {if(! i %in% a) BiocManager::install(i, update=F)}
+for(i in cran) {
+  if(! i %in% a) {
+    BiocManager::install(i, update=F)
+    a = rownames(installed.packages())
+  }
+  
+  
+}
 
 if (!"FEAST" %in% a){
   devtools::install_github("cozygene/FEAST")
 }
+
+library(devtools)
 
 devtools::install_github("microbiota/amplicon")
 
