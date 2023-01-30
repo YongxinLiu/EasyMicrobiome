@@ -23,22 +23,38 @@ cran <- c("RColorBrewer", "gplots", "agricolae","optparse", "plotrix","igraph",
 "circlize", "vegan", "data.tree", "biomformat", "robCompositions", "multcompView", 
 "scales", "devtools","Rcpp", "RcppArmadillo", "vegan", "reshape2", 
 "gridExtra", "phyloseq",  "markovchain", "picante", "ggalluvial", 'huge', 'pulsar','VGAM', 'glmnet',
-'rgexf')
+'rgexf', 'ggraph', "edgeR", "patchwork", "robustHD")
 
 
 a = rownames(installed.packages())
 
-for(i in cran) {if(! i %in% a) BiocManager::install(i, update=F)}
+for(i in cran) {
+  if(! i %in% a) {
+    BiocManager::install(i, update=F)
+    a = rownames(installed.packages())
+  }
+  
+  
+}
 
 if (!"FEAST" %in% a){
   devtools::install_github("cozygene/FEAST")
 }
+
+library(devtools)
 
 devtools::install_github("microbiota/amplicon")
 
 if(!requireNamespace("microeco", quietly = T))
   install_github("ChiLiubio/microeco")
 
+# 如果变异失败
+# 则增加这几个配置
+# 参考 https://www.r-bloggers.com/2021/03/gfortran-support-for-r-on-macos-2/
+# cat ~/.R/Makevars 
+# FC      = usr/local/opt/gcc/bin/gfortran
+# F77     = /usr/local/opt/gcc/bin/gfortran
+# FLIBS   = -L/usr/local/opt/gcc/lib
 if(!requireNamespace("SpiecEasi", quietly = T))
   install_github("zdk123/SpiecEasi")
 
