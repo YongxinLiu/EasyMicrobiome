@@ -4,25 +4,30 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.18
+版本(Version)：EasyMicrobiome v1.18.1
 
-更新时间(Update)：2023/2/3
+更新时间(Update)：2023/3/29
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
 ## 软件安装(Install)
 
-整个软件包几乎每周都更新，每个季度会更新生成一次稳定版。建议直载最新版并添加至环境变量至可使用
+软件包几乎每个季度会更新生成一次，下载并添加至环境变量至可使用。
 
+The software package will be updated and generated almost every quarter, downloaded and added to the environment variable to make it available.
 
-两种下载数据库的方法：任选其一即可
+多种下载软件和数据库的方法：任选其一即可
+Multiple ways to download software and databases: just choose one
+
+国内可备选微生物所下载站 http://nmdc.cn/datadownload 和百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
 
 	# 方法1. git下载，可使用wget或主页中直接下载压缩包
 	git clone https://github.com/YongxinLiu/EasyMicrobiome
 
 	# 方法2. 备用链接下载
-	wget -c http://bailab.genetics.ac.cn/db/EasyMicrobiome.zip
-	unzip EasyMicrobiome.zip
+	wget -c http://www.imeta.science/db/EasyMicrobiome.tar.gz
+	tar xvzf EasyMicrobiome.tar.gz
+
 
 添加linux命令可执行权限
 
@@ -45,7 +50,7 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 流程的绘图部分，依赖的R包较多，推荐在Windows系统是使用(安装R包更方便)，同时提供了4百个包的合集下载，节省安装时间
 
-- R语言4.2环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 http://bailab.genetics.ac.cn/db/R/4.2.zip
+- R语言4.2环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 http://www.imeta.science/db/R/4.2.zip
 
 ## 软件清单
 
@@ -54,7 +59,7 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 - linux：Linux系统下分析软件
     - [microbiome_helper](https://github.com/LangilleLab/microbiome_helper)：微生物组分析输助脚本，如metaphlan2结果转换STAMP格式(metaphlan_to_stamp.pl)，picurst结果功能组成绘图(plot_metagenome_contributions.R)
     - Miniconda2-latest-Linux-x86_64.sh：软件管理器 https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
-    - qiime2-2022.11.tar.gz：QIIME2安装包，解压至conda的envs目录可用 http://bailab.genetics.ac.cn/db/conda/qiime2-2022.11.tar.gz
+    - qiime2-2022.11.tar.gz：QIIME2安装包，解压至conda的envs目录可用 http://www.imeta.science/db/conda/qiime2-2022.11.tar.gz
     - qiime2-2022.11-py36-linux-conda.yml：QIIME2软件安装清单，使用conda在线安装
     - [sparcc](https://github.com/TankMermaid/sparcc)：sparcc网络分析python脚本
     - [usearch](http://www.drive5.com/usearch/)：扩增子分析流程
@@ -74,7 +79,7 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
     - [Git-2.30.2-64-bit.exe](http://gitforwindows.org/)：提供Git bash环境，自行下载安装，教程见：[Windows轻松实现linux shell环境：gitforwindows](https://mp.weixin.qq.com/s/KtM4c4o4iLfD4ZkEnMi1pg)
     - [R-4.2.0-win.exe](https://www.r-project.org/ )：R语言安装包，下载最新版：Downad CRAN - China Tsinghua - Download R for Windows(Mac) —— base —— Download R 4.2.0
     - [RStudio-1.4.1106.exe](https://www.rstudio.com/products/rstudio/download/#download)：RStudio安装包，提供分析运行界面。
-    - [4.2.zip](http://bailab.genetics.ac.cn/db/R/4.2.zip)：R语言常用400+包合集，解压至R包安装位置即可用。
+    - [4.2.zip](http://www.imeta.science/db/R/4.2.zip)：R语言常用400+包合集，解压至R包安装位置即可用。
     - [usearch.exe](http://www.drive5.com/usearch/)：扩增子分析流程
     - [vsearch.exe](https://github.com/torognes/vsearch)：扩增子分析流程(免费64位版usearch)
     - [STAMP2.1.3](http://kiwi.cs.dal.ca/Software/STAMP)：微生物组图形界面差异分析工具
@@ -100,9 +105,9 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 - gg：GreenGenes细菌16S数据库
     - [gg_13_8_otus.tar.gz](ftp://greengenes.microbio.me/greengenes_release/gg_13_5/gg_13_8_otus.tar.gz
-)：13年8月更新OTU数据库，用于usearch有参定量和PICRUSt/BugBase功能预测、QIIME 2制作分类器。[国内备份链接](http://bailab.genetics.ac.cn/db/gg/gg_13_8_otus.tar.gz)
-    - [16S_13_5_precalculated.tab.gz](http://bailab.genetics.ac.cn/db/picrust/16S_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S拷贝数
-	- [ko_13_5_precalculated.tab.gz](http://bailab.genetics.ac.cn/db/picrust/ko_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S对应的KO数量信息
+)：13年8月更新OTU数据库，用于usearch有参定量和PICRUSt/BugBase功能预测、QIIME 2制作分类器。[国内备份链接](http://www.imeta.science/db/gg/gg_13_8_otus.tar.gz)
+    - [16S_13_5_precalculated.tab.gz](http://www.imeta.science/db/picrust/16S_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S拷贝数
+	- [ko_13_5_precalculated.tab.gz](http://www.imeta.science/db/picrust/ko_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S对应的KO数量信息
 - kegg：KEGG数据库描述信息整理
     - [ko00001.keg](https://www.kegg.jp)：KEGG层级注释体系，主页 —— KEGG BRITE —— KEGG Orthology (KO) —— Download htext，下载保存为ko00001.tsv
     - ko00001.tsv：转换jason格式为制表符分隔的KO对应描述、(三级)通路、二级通路和一级通路信息
