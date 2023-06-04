@@ -1,10 +1,4 @@
-# 微生物组工具资源下载
-
-国家微生物科学数据中心——数据下载——工具资源下载
-
-网址：http://nmdc.cn/datadownload
-
-百度云备份：https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
+[TOC]
 
 ## 微生物组软件包
 
@@ -16,7 +10,7 @@
 
 版本 | 大小 | 更新时间 | 下载链接 | 描述
 -|-|-|-|-
-EasyMicrobiome v1.18 | 211M | 2023-03-29 | [zip](ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz) | 分析脚本、命令行程序、数据库注释整理表格等
+EasyMicrobiome v1.18 | 174M | 2023-04-04 | [zip](ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz) | 分析脚本、命令行程序、数据库注释整理表格等
 Windows系统常用软件 | 2G | 2023-04-04 | [目录链接](ftp://download.nmdc.cn/tools/win/win.zip) | 常用软件Git、R、RStudio、Rtools、STAMP
 微生物组常用软件补充目录 | 2G | 2023-03-22 | [目录链接](ftp://download.nmdc.cn/tools/soft/) | 常用软件、数据库等
 
@@ -49,7 +43,7 @@ EasyAmplicon v1.18 | 180M | 2023-03-11 | [zip](ftp://download.nmdc.cn/tools/soft
 
 版本 | 大小 | 更新时间 | 下载链接 | 描述
 -|-|-|-|-
-EasyMetagenome v1.18 | 211M | 2023-03-29 | [zip](ftp://download.nmdc.cn/tools/soft/EasyMetagenome.tar.gz) | 分析流程脚本、结果示例等
+EasyMetagenome v1.18 | 121M | 2023-04-04 | [zip](ftp://download.nmdc.cn/tools/soft/EasyMetagenome.tar.gz) | 分析流程脚本、结果示例等
 
 ### Conda软件压缩包
 
@@ -146,7 +140,7 @@ UNITE 9.0 usearch格式 | 39M | 2022-11-29 | [fasta.gz](ftp://download.nmdc.cn/t
 kneaddata 0.12.0 | 673M | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/conda/kneaddata.tar.gz) | 宏基因组质控、去宿主软件流程，包括kneaddata 0.12.0、fstqc v0.12.1、multiqc 1.13等
 人基因组hg37 | 3.7G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/meta/kneaddata/human_genome/Homo_sapiens_hg37_and_human_contamination_Bowtie2_v0.1.tar.gz) | 鉴定人类样本宿主含量或人源污染
 
-### HUMAnN物种和功能注释
+### MetaPhlAn+HUMAnN物种和功能注释
 
 - HUMAnN2+MetaPhlAn2数据库
 
@@ -163,6 +157,18 @@ HUMAnN2 Chocophlan v0.1.1 | 5.4G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/
 HUMAnN2 Mapping 1.1 | 621M | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/humann2/utility_mapping/full_mapping_1_1.tar.gz) | 功能描述(utility_mapping)
 HUMAnN2 Uniref90 1.1 | 6.2G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/humann2/uniref/uniref90_annotated_1_1.tar.gz) | UniRef蛋白(protein)序列90%相似度聚类diamond索引
 HUMAnN2 Uniref50 1.1 | 2.7G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/humann2/uniref/uniref90_annotated_1_1.tar.gz) | UniRef蛋白(protein)序列50%相似度聚类diamond索引
+
+- MetaPhlAn4软件+数据库
+
+主页：https://github.com/biobakery/MetaPhlAn
+
+简介：宏基因组数据有参快速物种定量软件
+
+版本 | 大小 | 更新时间 | 下载链接 | 说明 
+-|-|-|-|-
+MetaPhlAn4 | 371M | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/conda/metaphlan4.tar.gz) | metaphlan4.0.6
+MetaPhlAn4 vJan21数据库 | 13G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/meta/metaphlan4/mpa_vJan21_CHOCOPhlAnSGB_202103_bt2.tar.gz) | 物种注释、序列和bowtie2索引(完整版列)
+MetaPhlAn4 vOct22数据库 | 14G | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/meta/metaphlan4/mpa_vOct22_CHOCOPhlAnSGB_202212_bt2.tar.gz) | 物种注释、序列和bowtie2索引(完整版列)
 
 ### LEfSe生物标志物鉴定
 
@@ -273,5 +279,3 @@ CheckM | 288M | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/meta/checkm/c
 -|-|-|-|-
 GTDB-tk v2.2.6 | 154M | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/conda/gtdbtk.tar.gz) | 细菌、古菌基因组物种注释
 GTDB r207v2 | 67GB | 2023-04-04 | [tar.gz](ftp://download.nmdc.cn/tools/meta/gtdb/gtdbtk_r207_v2_data.tar.gz) | 分箱、细菌基因组物种注释、进化树构建
-
-

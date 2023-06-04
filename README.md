@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.18.2
+版本(Version)：EasyMicrobiome v1.19
 
-更新时间(Update)：2023/4/4
+更新时间(Update)：2023/6/9
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
@@ -25,7 +25,7 @@ Multiple ways to download software and databases: just choose one
 	git clone https://github.com/YongxinLiu/EasyMicrobiome
 
 	# 方法2. 备用链接下载
-	wget -c ftp://download.nmdc.cn/tools/EasyMicrobiome.tar.gz
+	wget -c ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz
 	tar xvzf EasyMicrobiome.tar.gz
 
 
@@ -50,7 +50,7 @@ Multiple ways to download software and databases: just choose one
 
 流程的绘图部分，依赖的R包较多，推荐在Windows系统是使用(安装R包更方便)，同时提供了4百个包的合集下载，节省安装时间
 
-- R语言4.2环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 ftp://download.nmdc.cn/tools/win/4.2.zip
+- R语言4.3环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 ftp://download.nmdc.cn/tools/win/4.3.zip
 
 ## 软件清单
 
