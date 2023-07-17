@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2016-2020 Yong-Xin Liu <metagenome@126.com>
+# Copyright 2016-2023 Yong-Xin Liu <metagenome@126.com>
 
 # If used this script, please cited:
 # Jingying Zhang, Yong-Xin Liu, et. al. NRT1.1B is associated with root microbiota composition and nitrogen use in field-grown rice. Nature Biotechnology 37, 676-684, doi:10.1038/s41587-019-0104-4 (2019).
@@ -118,12 +118,13 @@ main_theme = theme(panel.background = element_blank(),
                    legend.text = element_text(size = 7),
                    text = element_text(family = "sans", size = 7))
 
-p =ggplot(diff[diff$log2FC < 4 & diff$log2FC > -4, ], aes(x=log2FC, y=log2CPM, color=level)) +
-  geom_point(color = "grey")+
+# p =ggplot(diff[diff$log2FC < 4 & diff$log2FC > -4, ], aes(x=log2FC, y=log2CPM, color=level)) +
+p =ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
+  geom_point()+scale_colour_manual(values=c("green","red","grey"))+
   theme_classic()+
   #加抖动
-  geom_jitter(data = subset(diff, log2FC == 4), width = 0.2, height = 0.2, color = "red")+
-  geom_jitter(data = subset(diff, log2FC == -4), width = 0.2, height = 0.2, color = "green")+
+  # geom_jitter(data = subset(diff, log2FC == 4), width = 0.2, height = 0.2, color = "red")+
+  # geom_jitter(data = subset(diff, log2FC == -4), width = 0.2, height = 0.2, color = "green")+
   # 5.23修改 重设刻度间隔
   scale_x_continuous(breaks=seq(-4,4,1))+ 
   theme_classic()+
@@ -133,16 +134,16 @@ p =ggplot(diff[diff$log2FC < 4 & diff$log2FC > -4, ], aes(x=log2FC, y=log2CPM, c
   annotate("text",x=3,y=15,label=table(diff$level)[2]) +
   main_theme
 # 5.23修改 加图例
-legend= ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
-  geom_point() + theme_classic()+
-  scale_colour_manual(values=c("green","red","grey")) +
-  main_theme
-
-p1=plot_grid(p,
-             plot_grid(get_legend(legend),
-                       ncol = 1,
-                       align = "hv"),
-             ncol = 2,align = "hv",rel_widths=c(9,1))
+# legend= ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
+#   geom_point() + theme_classic()+
+#   scale_colour_manual(values=c("green","red","grey")) +
+#   main_theme
+# 
+# p1=plot_grid(p,
+#              plot_grid(get_legend(legend),
+#                        ncol = 1,
+#                        align = "hv"),
+#              ncol = 2,align = "hv",rel_widths=c(9,1))
 p
-ggsave(opts$output, p1, width = opts$width, height = opts$height, units = "mm")
+ggsave(opts$output, p, width = opts$width, height = opts$height, units = "mm")
 
