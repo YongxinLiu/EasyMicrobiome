@@ -1,8 +1,7 @@
-#! /conda2/envs/humann3/bin/python
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 '''
-Copyright 2018-2021, 陈同 (chentong_biology@163.com).  
+Copyright 2018-2023, 陈同 (chentong_biology@163.com).  
 ===========================================================
 '''
 __author__ = 'chentong & ct586[9]'

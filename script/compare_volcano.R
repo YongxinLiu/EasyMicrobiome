@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2016-2020 Yong-Xin Liu <metagenome@126.com>
+# Copyright 2016-2023 Yong-Xin Liu <metagenome@126.com>
 
 # If used this script, please cited:
 # Jingying Zhang, Yong-Xin Liu, et. al. NRT1.1B is associated with root microbiota composition and nitrogen use in field-grown rice. Nature Biotechnology 37, 676-684, doi:10.1038/s41587-019-0104-4 (2019).
@@ -43,7 +43,7 @@ options(warn = -1) # Turn off warning
 site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
 # 判断命令行解析是否安装，安装并加载
 if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
-  install.packages(p, repos=site)
+  install.packages("optparse", repos=site)
   require("optparse",character.only=T)
 }
 # 解析参数-h显示帮助信息
@@ -83,13 +83,26 @@ if(opts$output == ""){
 #----1.3. 加载包 Load packages#----
 
 suppressWarnings(suppressMessages(library(amplicon)))
-
+# 5.23修改 加载包
+package_list <- c('cowplot')
+# 判断R包加载是否成功来决定是否安装后再加载
+for(pac in package_list){
+  if(!suppressWarnings(suppressMessages(require(pac, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))){
+    install.packages(pac, repos=site)
+    suppressWarnings(suppressMessages(library(pac, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))
+  }
+}
 
 #----2. 读取文件 Read files#----
 
 #----2.1 读取差异比较结果#----
 diff = read.table(opts$input, header=T, row.names=1, sep="\t", comment.char="")
 diffN = as.data.frame(table(diff$level))
+# 5.23修改 对区间赋值
+diff$log2FC[diff$log2FC> 4]=4
+diff$log2FC[diff$log2FC< -4]=-4
+breaks= c(-4,-3,-2,-1,0,1,2,3,4)
+
 
 #----3. 统计绘图#----
 
@@ -105,14 +118,32 @@ main_theme = theme(panel.background = element_blank(),
                    legend.text = element_text(size = 7),
                    text = element_text(family = "sans", size = 7))
 
-p = ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
-  geom_point() + xlim(-4, 4) + theme_classic()+
-  scale_colour_manual(values=c("green","red","grey")) +
+# p =ggplot(diff[diff$log2FC < 4 & diff$log2FC > -4, ], aes(x=log2FC, y=log2CPM, color=level)) +
+p =ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
+  geom_point()+scale_colour_manual(values=c("green","red","grey"))+
+  theme_classic()+
+  #加抖动
+  # geom_jitter(data = subset(diff, log2FC == 4), width = 0.2, height = 0.2, color = "red")+
+  # geom_jitter(data = subset(diff, log2FC == -4), width = 0.2, height = 0.2, color = "green")+
+  # 5.23修改 重设刻度间隔
+  scale_x_continuous(breaks=seq(-4,4,1))+ 
+  theme_classic()+
   labs(x="log2(fold change)", y="log2(count per million)",
        title=gsub(".txt","",basename(opts$input)))+
   annotate("text",x=-3,y=15,label=table(diff$level)[1])+
   annotate("text",x=3,y=15,label=table(diff$level)[2]) +
   main_theme
+# 5.23修改 加图例
+# legend= ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
+#   geom_point() + theme_classic()+
+#   scale_colour_manual(values=c("green","red","grey")) +
+#   main_theme
+# 
+# p1=plot_grid(p,
+#              plot_grid(get_legend(legend),
+#                        ncol = 1,
+#                        align = "hv"),
+#              ncol = 2,align = "hv",rel_widths=c(9,1))
 p
 ggsave(opts$output, p, width = opts$width, height = opts$height, units = "mm")
 

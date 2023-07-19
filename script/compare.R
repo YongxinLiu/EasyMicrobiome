@@ -1,11 +1,9 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2016-2020 Yong-Xin Liu <metagenome@126.com>
+# Copyright 2016-2023 Yong-Xin Liu <metagenome@126.com>
 
 # If used this script, please cited:
-# Tong Chen, Yong-Xin Liu, Luqi Huang. 2022. ImageGP: An easy-to-use data visualization web server for scientific researchers. iMeta 1: e5. https://doi.org/10.1002/imt2.5
-# Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, Yang Bai. 2021. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein & Cell 12: 315-330. https://doi.org/10.1007/s13238-020-00724-8
-
+# Yong-Xin Liu, Lei Chen, Tengfei Ma, Xiaofang Li, Maosheng Zheng, Xin Zhou, Liang Chen, Xubo Qian, Jiao Xi, Hongye Lu, Huiluo Cao, Xiaoya Ma, Bian Bian, Pengfan Zhang, Jiqiu Wu, Ren-You Gan, Baolei Jia, Linyang Sun, Zhicheng Ju, Yunyun Gao, Tao Wen, Tong Chen. 2023. EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. iMeta 2: e83. https://doi.org/10.1002/imt2.83
 
 # 手动运行脚本请，需要设置工作目录，使用 Ctrl+Shift+H 或 Session - Set Work Directory - Choose Directory / To Source File Location 设置工作目录
 
@@ -41,13 +39,20 @@ options(warn = -1) # Turn off warning
 
 
 #----1.2 参数缺少值 Default values#----
-# 设置清华源加速下载
-site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
 # 判断命令行解析是否安装，安装并加载
 if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
-  install.packages(p, repos=site)
+  install.packages("optparse")
   require("optparse",character.only=T)
 }
+# 基于Bioconductor安装R包
+library(BiocManager)
+if (!requireNamespace("edgeR", quietly = TRUE))
+  BiocManager::install("edgeR")
+# 基于github安装，检测没有则安装
+library(devtools)
+if(!requireNamespace("amplicon", quietly = TRUE))
+  install_github("microbiota/amplicon")
+
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(

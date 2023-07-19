@@ -4,25 +4,30 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.18
+版本(Version)：EasyMicrobiome v1.19
 
-更新时间(Update)：2023/2/3
+更新时间(Update)：2023/6/9
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
 ## 软件安装(Install)
 
-整个软件包几乎每周都更新，每个季度会更新生成一次稳定版。建议直载最新版并添加至环境变量至可使用
+软件包几乎每个季度会更新生成一次，下载并添加至环境变量至可使用。
 
+The software package will be updated and generated almost every quarter, downloaded and added to the environment variable to make it available.
 
-两种下载数据库的方法：任选其一即可
+多种下载软件和数据库的方法：任选其一即可
+Multiple ways to download software and databases: just choose one
+
+国内可备选微生物所下载站 http://nmdc.cn/datadownload 和百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
 
 	# 方法1. git下载，可使用wget或主页中直接下载压缩包
 	git clone https://github.com/YongxinLiu/EasyMicrobiome
 
 	# 方法2. 备用链接下载
-	wget -c http://bailab.genetics.ac.cn/db/EasyMicrobiome.zip
-	unzip EasyMicrobiome.zip
+	wget -c ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz
+	tar xvzf EasyMicrobiome.tar.gz
+
 
 添加linux命令可执行权限
 
@@ -45,7 +50,7 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 流程的绘图部分，依赖的R包较多，推荐在Windows系统是使用(安装R包更方便)，同时提供了4百个包的合集下载，节省安装时间
 
-- R语言4.2环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 http://bailab.genetics.ac.cn/db/R/4.2.zip
+- R语言4.3环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 ftp://download.nmdc.cn/tools/win/4.3.zip
 
 ## 软件清单
 
@@ -53,28 +58,28 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 - linux：Linux系统下分析软件
     - [microbiome_helper](https://github.com/LangilleLab/microbiome_helper)：微生物组分析输助脚本，如metaphlan2结果转换STAMP格式(metaphlan_to_stamp.pl)，picurst结果功能组成绘图(plot_metagenome_contributions.R)
-    - Miniconda2-latest-Linux-x86_64.sh：软件管理器 https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
-    - qiime2-2022.11.tar.gz：QIIME2安装包，解压至conda的envs目录可用 http://bailab.genetics.ac.cn/db/conda/qiime2-2022.11.tar.gz
-    - qiime2-2022.11-py36-linux-conda.yml：QIIME2软件安装清单，使用conda在线安装
+    - Miniconda3-latest-Linux-x86_64.sh：软件管理器 https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+    - qiime2-2023.2.tar.gz：QIIME2安装包，解压至conda的envs目录可用 ftp://download.nmdc.cn/tools/conda/qiime2-2023.2.tar.gz
+    - qiime2-2023.2-py38-linux-conda.yml：QIIME2软件安装清单，使用conda在线安装
     - [sparcc](https://github.com/TankMermaid/sparcc)：sparcc网络分析python脚本
     - [usearch](http://www.drive5.com/usearch/)：扩增子分析流程
     - [vsearch](https://github.com/torognes/vsearch)：扩增子分析流程(免费64位版usearch)
 - mac：Mac系统下分析软件
     - csvtk：表格分析工具
     - iqtree：进化树构建
-    - qiime2-2022.11-py38-osx-conda.yml：QIIME2软件安装清单，使用conda在线安装
-    - R-4.2.0.pkg：R语言安装包
-    - RStudio-1.4.1106.dmg：RStudio安装包
+    - qiime2-2023.2-py38-osx-conda.yml：QIIME2软件安装清单，使用conda在线安装
+    - R-4.2.3.pkg：R语言安装包
+    - RStudio-2023.03.0-386.dmg：RStudio安装包
     - rush：并行管理工具
     - seqkit：序列处理工具
     - taxonkit：NCBI分类处理工具
     - usearch：扩增子分析流程
     - vsearch：扩增子分析流程(免费64位版usearch)
 - win：Windows系统下分析软件
-    - [Git-2.30.2-64-bit.exe](http://gitforwindows.org/)：提供Git bash环境，自行下载安装，教程见：[Windows轻松实现linux shell环境：gitforwindows](https://mp.weixin.qq.com/s/KtM4c4o4iLfD4ZkEnMi1pg)
-    - [R-4.2.0-win.exe](https://www.r-project.org/ )：R语言安装包，下载最新版：Downad CRAN - China Tsinghua - Download R for Windows(Mac) —— base —— Download R 4.2.0
-    - [RStudio-1.4.1106.exe](https://www.rstudio.com/products/rstudio/download/#download)：RStudio安装包，提供分析运行界面。
-    - [4.2.zip](http://bailab.genetics.ac.cn/db/R/4.2.zip)：R语言常用400+包合集，解压至R包安装位置即可用。
+    - [Git-2.40.0-64-bit.exe](http://gitforwindows.org/)：提供Git bash环境，自行下载安装，教程见：[Windows轻松实现linux shell环境：gitforwindows](https://mp.weixin.qq.com/s/KtM4c4o4iLfD4ZkEnMi1pg)
+    - [R-4.2.3-win.exe](https://www.r-project.org/ )：R语言安装包，下载最新版：Downad CRAN - China Tsinghua - Download R for Windows(Mac) —— base —— Download R 4.2.0
+    - [RStudio-2023.03.0-386.exe](https://www.rstudio.com/products/rstudio/download/#download)：RStudio安装包，提供分析运行界面。
+    - [4.2.zip](ftp://download.nmdc.cn/tools/win/4.2.zip)：R语言常用400+包合集，解压至R包安装位置即可用。
     - [usearch.exe](http://www.drive5.com/usearch/)：扩增子分析流程
     - [vsearch.exe](https://github.com/torognes/vsearch)：扩增子分析流程(免费64位版usearch)
     - [STAMP2.1.3](http://kiwi.cs.dal.ca/Software/STAMP)：微生物组图形界面差异分析工具
@@ -100,9 +105,9 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
 
 - gg：GreenGenes细菌16S数据库
     - [gg_13_8_otus.tar.gz](ftp://greengenes.microbio.me/greengenes_release/gg_13_5/gg_13_8_otus.tar.gz
-)：13年8月更新OTU数据库，用于usearch有参定量和PICRUSt/BugBase功能预测、QIIME 2制作分类器。[国内备份链接](http://bailab.genetics.ac.cn/db/gg/gg_13_8_otus.tar.gz)
-    - [16S_13_5_precalculated.tab.gz](http://bailab.genetics.ac.cn/db/picrust/16S_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S拷贝数
-	- [ko_13_5_precalculated.tab.gz](http://bailab.genetics.ac.cn/db/picrust/ko_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S对应的KO数量信息
+)：13年8月更新OTU数据库，用于usearch有参定量和PICRUSt/BugBase功能预测、QIIME 2制作分类器。[国内备份链接](ftp://download.nmdc.cn/tools/gg/gg_13_8_otus.tar.gz)
+    - [16S_13_5_precalculated.tab.gz](ftp://download.nmdc.cn/tools/picrust/16S_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S拷贝数
+	- [ko_13_5_precalculated.tab.gz](ftp://download.nmdc.cn/tools/picrust/ko_13_5_precalculated.tab.gz)：picrust的GreenGenes 16S对应的KO数量信息
 - kegg：KEGG数据库描述信息整理
     - [ko00001.keg](https://www.kegg.jp)：KEGG层级注释体系，主页 —— KEGG BRITE —— KEGG Orthology (KO) —— Download htext，下载保存为ko00001.tsv
     - ko00001.tsv：转换jason格式为制表符分隔的KO对应描述、(三级)通路、二级通路和一级通路信息
@@ -110,7 +115,7 @@ Popular software, scripts and database annotation for EasyAmplicon and EasyMetag
     - KO_description.txt：KO编号对应的功能描述
     - KO_path.list：KO与通路(Pathway)的对应关系，存在某个KO存在于多个通路(1对多)
 - usearch：usearch/vsearch物种分类sintax命令使用数据库
-    - [rdp_16s_v16_sp.fa.gz](http://www.drive5.com/usearch/manual/sintax_downloads.html)：16S的RDP16数据库，usearch作者整理，更多16S、ITS和18S数据库见 http://www.drive5.com/usearch/manual/sintax_downloads.html
+    - [rdp_16s_v18.fa.gz](http://www.drive5.com/usearch/manual/sintax_downloads.html)：16S的RDP16数据库，usearch作者整理，更多16S、ITS和18S数据库见 http://www.drive5.com/usearch/manual/sintax_downloads.html
     - rdp_16s_v18.fa.gz：16S的RDP18数据库，2021年基于RDP数据库整理
     - utax_reference_dataset_all_04.02.2020.fasta.gz：ITS注释数据库，可从UNITE下载
 - eggnog: eggnog结果的注释文件补充
