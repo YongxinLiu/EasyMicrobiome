@@ -146,7 +146,7 @@ for(p in package_list){
 
 # Set ggplot2 drawing parameter, such as axis line and text size, lengend and title size, and so on.
 main_theme = theme(panel.background=element_blank(), panel.grid=element_blank(),
-	axis.line.x=element_line(size=.5, colour="black"), axis.line.y=element_line(size=.5, colour="black"),
+	axis.line.x=element_line(linewidth=.5, colour="black"), axis.line.y=element_line(linewidth=.5, colour="black"),
 	axis.ticks=element_line(color="black"), axis.text=element_text(color="black", size=${text_size}),
 	legend.position="right", legend.background=element_blank(), legend.key=element_blank(), legend.text= element_text(size=${text_size}),
 	text=element_text(family="sans", size=${text_size}))
