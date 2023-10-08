@@ -45,6 +45,31 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
   install.packages(p, repos=site)
   require("optparse",character.only=T)
 }
+
+
+site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+
+options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager", repos = site)
+
+a = rownames(installed.packages())
+
+install_bioc <- c("ggplot2", "multcompView")
+
+for (i in install_bioc) {
+  if (!i %in% a)
+    BiocManager::install(i, update = F, site_repository=site)
+    a = rownames(installed.packages())
+}
+
+if (!"amplicon" %in% a){
+  devtools::install_github("microbiota/amplicon")
+}
+
+
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
