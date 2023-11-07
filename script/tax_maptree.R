@@ -62,6 +62,29 @@ if (TRUE){
 
 # 2. 依赖关系检查、安装和加载
 
+site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+
+options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
+
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager", repos = site)
+
+a = rownames(installed.packages())
+
+install_bioc <- c("phyloseq", "data.tree")
+
+for (i in install_bioc) {
+  if (!i %in% a)
+    BiocManager::install(i, update = F, site_repository=site)
+    a = rownames(installed.packages())
+}
+
+if (!"amplicon" %in% a){
+  devtools::install_github("microbiota/amplicon")
+}
+
+
 suppressWarnings(suppressMessages(library(amplicon)))
 
 

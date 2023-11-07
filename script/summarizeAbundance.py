@@ -81,6 +81,8 @@ def cmdparameter(argv):
          help="Specify the output data type, accept <raw>, <cpm> or both <raw,cpm>.")
     parser.add_option("-o", "--output-prefix", dest="output_prefix",
          help="Output file prefix.")
+    parser.add_option("-D", "--dropkeycolumn", dest="dropkeycol",
+        action="store_true", help="Show process information")
     parser.add_option("-v", "--verbose", dest="verbose",
         action="store_true", help="Show process information")
     parser.add_option("-d", "--debug", dest="debug",
@@ -124,6 +126,7 @@ def main():
     #    sys.stderr.write(f"{abundance_keep} currently unsupported for <-e>.\n")
     #    return
     output_prefix = options.output_prefix
+    dropkeycol = options.dropkeycol
 
     # abundance_keep_funD = {'median': median, 'sum': sum, 'minimum': minimum}
     # abundance_keep_fun = abundance_keep_funD[abundance_keep]
@@ -168,6 +171,10 @@ def main():
         for exprDF, exprType in zip(abundanceL, norm_typeL):
             #grpMergeDF = pd.concat([grpDF, exprDF], axis=1, sort=False, join="inner")
             grpMergeDF = grpDF.merge(exprDF, left_on=keyName, right_index =True, how="inner")
+
+            if dropkeycol:
+                grpMergeDF.drop(keyName, axis=1, inplace=True)
+
             if debug:
                 sys.stderr.write(f"Read in probe-map matrix: {grpMergeDF.shape}.\n")
                 sys.stderr.write(f"Read in probe-map matrix: {grpMergeDF.head()}.\n")
@@ -176,6 +183,9 @@ def main():
                 sep = ""
             grpMergeDF[grp] = grpMergeDF[grp].str.split(sep)
             grpMergeDF_explode = grpMergeDF.explode(grp)
+            if debug:
+                sys.stderr.write(f"grpMergeDF_explode: {grpMergeDF_explode.head()}.\n")
+
             grpMergeDF_explode = grpMergeDF_explode.loc[grpMergeDF_explode[grp]!="", ]
             final_abundanceDF = grpMergeDF_explode.groupby(grp, as_index=False).agg(abundance_keep)
             filename = f"{output_prefix}.{grp}.{exprType}.txt"
