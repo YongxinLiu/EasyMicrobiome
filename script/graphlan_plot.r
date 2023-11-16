@@ -52,6 +52,15 @@ tax_id <- intersect(colnames(taxonomy),all_tax)
 # taxonomy
 taxonomy <- subset(taxonomy,taxonomy[,tax_id[length(tax_id)]] != "unclassified")
 # taxonomy[,tax_id[length(tax_id)]]
+for(i in tax_id){
+	for (j in c(1:nrow(taxonomy))){
+		if (length(grep("__",taxonomy[j,i]))!=0){
+			taxonomy[j,i] <- substr(taxonomy[j,i],4,nchar(taxonomy[j,i])) 
+		}
+	else{taxonomy[j,i] <- taxonomy[j,i]
+      	}
+	}
+}
 row.names(taxonomy) <- taxonomy[,tax_id[length(tax_id)]]
 # 读取实验设计
 metadata = read.table(opts$design, sep="\t", header = TRUE, row.names = 1, 
