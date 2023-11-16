@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.20
+版本(Version)：EasyMicrobiome v1.20.1
 
-更新时间(Update)：2023/10/13
+更新时间(Update)：2023/11/23
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
@@ -67,8 +67,8 @@ Multiple ways to download software and databases: just choose one
 - mac：Mac系统下分析软件
     - csvtk：表格分析工具
     - iqtree：进化树构建
-    - qiime2-2023.2-py38-osx-conda.yml：QIIME2软件安装清单，使用conda在线安装
-    - R-4.2.3.pkg：R语言安装包
+    - qiime2-2023.9-py38-osx-conda.yml：QIIME2软件安装清单，使用conda在线安装
+    - R-4.3.2.pkg：R语言安装包
     - RStudio-2023.03.0-386.dmg：RStudio安装包
     - rush：并行管理工具
     - seqkit：序列处理工具
@@ -77,7 +77,7 @@ Multiple ways to download software and databases: just choose one
     - vsearch：扩增子分析流程(免费64位版usearch)
 - win：Windows系统下分析软件
     - [Git-2.40.0-64-bit.exe](http://gitforwindows.org/)：提供Git bash环境，自行下载安装，教程见：[Windows轻松实现linux shell环境：gitforwindows](https://mp.weixin.qq.com/s/KtM4c4o4iLfD4ZkEnMi1pg)
-    - [R-4.2.3-win.exe](https://www.r-project.org/ )：R语言安装包，下载最新版：Downad CRAN - China Tsinghua - Download R for Windows(Mac) —— base —— Download R 4.2.0
+    - [R-4.3.2-win.exe](https://www.r-project.org/ )：R语言安装包，下载最新版：Downad CRAN - China Tsinghua - Download R for Windows(Mac) —— base —— Download R 4.3.2
     - [RStudio-2023.03.0-386.exe](https://www.rstudio.com/products/rstudio/download/#download)：RStudio安装包，提供分析运行界面。
     - [4.2.zip](ftp://download.nmdc.cn/tools/win/4.2.zip)：R语言常用400+包合集，解压至R包安装位置即可用。
     - [usearch.exe](http://www.drive5.com/usearch/)：扩增子分析流程
