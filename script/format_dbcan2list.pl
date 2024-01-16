@@ -11,11 +11,12 @@ use File::Basename;
 sub usage {
     die(
         qq!
-Usage:    format_dbcan2list.pl -i temp/dbcan2/gene_diamond.f6 -o temp/dbcan2/gene.list -h header num
+Usage:    format_dbcan2list.pl -i temp/dbcan3/gene_diamond.f6 -o temp/dbcan3/gene.list -h header num
 Function: Format diamond blastx result into gene and target list, gene may have multiply targets.
 Command:  -i inpute file name (Must)
           -o output file name (Must)
           -d database file name
+          -e evaule, default 1e-30, recommend 1e-109
           -h header line number, default 0
 Author:   Liu Yong-Xin, liuyongxin_bio\@163.com, QQ:42789409
 Version:  v1.01
@@ -23,6 +24,7 @@ Update:   2021/1/18
 Notes:    v1.00 2021/1/4 创立脚本
           v1.01 2021/1/18 修改竖线后多个酶学编号的问题(|2.4.1.22|2.4.1.38|2.4.1.90)
           v1.02 2021/7/7 新增相似度在第3列
+          v1.21 2024/1/16解决结果丢失第一列结果的bug，新增了Evalue，及按Evalue筛选的参数
 \n!
     )
 }
@@ -32,7 +34,7 @@ Notes:    v1.00 2021/1/4 创立脚本
 #Get the parameter and provide the usage.
 ###############################################################################
 my %opts;
-getopts( 'i:o:d:h:', \%opts );
+getopts( 'i:o:d:e:h:', \%opts );
 &usage unless ( exists $opts{i} && exists $opts{o} );
 my $start_time=time;
 #print strftime("Start time is %Y-%m-%d %H:%M:%S\n", localtime(time));
@@ -40,6 +42,7 @@ my $start_time=time;
 #print "Database file is $opts{d}\n" if defined($opts{d});
 # 调置参数的初始值，可以添加更多参数的默认值
 $opts{h}=0 unless defined($opts{h});
+$opts{e}=1e-30 unless defined($opts{e});
 
 ###############################################################################
 #读入的数据或注释文件，用于与输入文件比较或注释(可选)，提供三种方式
@@ -86,11 +89,18 @@ open INPUT,"<$opts{i}";
 #k119_59_1       VTP76200.1|CBM48|GH13_9|        100.0   120     0       0       1   120      496     615     7.4e-70 266.2
 #k141_2660488_1  BAA24360.1|CBM38|GH32|2.4.1.-   50.2    295     129     7       2       286     693     979     4.7e-70
 #k141_3197835_1  AAA37297.1|GT7|2.4.1.22|2.4.1.38|2.4.1.90       62.1    103     31      2       1       102     160
+#New data
+#gene	target	similarity	length	mismatch	gap	qstart	qend	start	end evalue	bitscore
+#k119_656_1      APZ95558.1|GT2  46.9    98      52      0       7       104     33      130     4.16e-24        100
+#k119_265_1      ALR08738.2|GT83 48.9    139     67      4       8       144     348     484     6.72e-30        118
+#k119_1032_1     AIE96983.1|GT7  33.0    182     111     4       1       173     973     1152    2.26e-17        85.1
+
 open OUTPUT,">$opts{o}";
 #gene	target
-#k119_57_1	CBM50
-#k119_59_1	CBM48
-#k119_59_1	GH13_9
+#Name    CAZy    Identity Evaule
+#k119_139_1      GT3     99.2
+#k119_901_1      CBM32   100
+
 
 #my %count;
 ## h参数用于去除有文件头的行
@@ -104,17 +114,18 @@ open OUTPUT,">$opts{o}";
 
 # 使用存储结果，防止输出重复结果
 my %database;
-print OUTPUT "Name\tCAZy\tIdentity\n";
+print OUTPUT "Name\tCAZy\tIdentity\tEvalue\n";
 while (<INPUT>) {
 	chomp;
 	my @tmp=split/\t/;
 	my @tmp1=split('\|',$tmp[1]);
 	# print $#tmp1,"\n";
-	if ($tmp[1]=~/\|$/) {
-		$i=$#tmp1;
-	}else{
-		$i=$#tmp1-1;
-	}
+# 新版结果没有|，跳过此步
+# if ($tmp[1]=~/\|$/) {
+   $i=$#tmp1;
+# }else{
+#   $i=$#tmp1-1;
+# }
 	foreach (1..$i) {
 		# 跳过酶学编号的结果
 		if ($tmp1[$_]=~/^\d/) {
@@ -124,7 +135,9 @@ while (<INPUT>) {
 		$tmp1[$_]=~s/_.*//;
 		if (!$database{$tmp[0]}{$tmp1[$_]}) {
 		#print "$tmp[0]\t$tmp1[$_]\n";
-		print OUTPUT "$tmp[0]\t$tmp1[$_]\t$tmp[2]\n";
+		if ($tmp[10] < $opts{e}) {
+  		print OUTPUT "$tmp[0]\t$tmp1[$_]\t$tmp[2]\t$tmp[10]\n";
+		}
 		}else{
 			next;
 		}
