@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.20.1
+版本(Version)：EasyMicrobiome v1.21
 
-更新时间(Update)：2023/11/23
+更新时间(Update)：2024/4/12
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
@@ -51,6 +51,16 @@ Multiple ways to download software and databases: just choose one
 流程的绘图部分，依赖的R包较多，推荐在Windows系统是使用(安装R包更方便)，同时提供了4百个包的合集下载，节省安装时间
 
 - R语言4.3环境和R包：R语言主页 http://www.r-project.org ，Windows版包合集 ftp://download.nmdc.cn/tools/win/4.3.zip
+
+
+## 更新日志 Change log
+
+### v1.21 2024/4/12 update
+- csvtk 0.25.0 to 0.30.0
+- seqkit 2.4 to 2.8
+
+
+
 
 ## 软件清单
 
@@ -173,6 +183,6 @@ If used this script, please cited:
 
 **Yong-Xin Liu**, Lei Chen, Tengfei Ma, Xiaofang Li, Maosheng Zheng, Xin Zhou, Liang Chen, Xubo Qian, Jiao Xi, Hongye Lu, Huiluo Cao, Xiaoya Ma, Bian Bian, Pengfan Zhang, Jiqiu Wu, Ren-You Gan, Baolei Jia, Linyang Sun, Zhicheng Ju, Yunyun Gao, **Tao Wen**, **Tong Chen**. 2023. EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. **iMeta** 2: e83. https://doi.org/10.1002/imt2.83
 
-Copyright 2016-2023 Yong-Xin Liu <liuyongxin@caas.cn>, Tao Wen <taowen@njau.edu.cn>, Tong Chen <chent@nrc.ac.cn>
+Copyright 2016-2024 Yong-Xin Liu <liuyongxin@caas.cn>, Tao Wen <taowen@njau.edu.cn>, Tong Chen <chent@nrc.ac.cn>
 
 
