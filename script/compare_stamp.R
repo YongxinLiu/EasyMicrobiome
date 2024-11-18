@@ -208,13 +208,13 @@ if (opts$method == "wilcox"){
     map_df(~ broom::tidy(wilcox.test(. ~ Group,data=data1)), .id='var')
 
 diff1$p.value <- p.adjust(diff1$p.value, opts$fdr)
-diff1 <- diff %>% filter(p.value < opts$pvalue)
+diff1 <- diff %>% dplyr::filter(p.value < opts$pvalue)
 }
 
 ## 绘图数据构建
 ## 左侧条形图
 abun.bar <- data1[,c(diff$var,"Group")] %>% 
-    gather(variable,value,-Group) %>% 
+    tidyr::gather(variable,value,-Group) %>% 
     group_by(variable,Group) %>% 
     summarise(Mean=mean(value))
 
