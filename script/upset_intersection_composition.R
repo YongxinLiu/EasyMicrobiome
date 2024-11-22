@@ -32,11 +32,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-i", "--input"), type="character", default="result/eggnog/d3.data4venn_hope8.txt",
+    make_option(c("-c", "--input"), type="character", default="result/eggnog/data_venn2.txt",
                 help="Unfiltered OTU table [default %default]"),
-    make_option(c("-c", "--composition"), type="character", default="result/eggnog/COGs_data_28_2.txt",
+    make_option(c("-m", "--composition"), type="character", default="result/eggnog/COGs_data.txt",
                 help="Unfiltered OTU table [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="result/eggnog/",
+    make_option(c("-p", "--output"), type="character", default="result/eggnog/",
                 help="Output MAGs UpSet plot for different databases  [default %default]") 
   )
   opts = parse_args(OptionParser(option_list=option_list))
@@ -132,5 +132,5 @@ p1 <- ggplot(data1,aes(ymax=ymax,ymin=ymin,
                                "#d27e43","#8a4984","#fe5094","#8d342e","#d2da93",
                                "#ffad00","lightgrey","#00fc8d","#b64aa0","#9b82e1"))
 p1
-ggsave(file=paste(opts$output, "Cogs_pie_28_2.pdf", sep=""), plot = p1, width = 6, height = 6)
+ggsave(file=paste(opts$output, "Cogs_pie_example.pdf", sep=""), plot = p1, width = 6, height = 6)
 

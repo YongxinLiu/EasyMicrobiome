@@ -32,11 +32,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-i", "--input"), type="character", default="result/coverm/ASV_table.txt",
+    make_option(c("-i", "--input"), type="character", default="binning/result/coverm/abundance.tsv",
                 help="Unfiltered OTU table [default %default]"),
-    make_option(c("-t", "--taxonomy"), type="character", default="result/coverm/taxonomy_8.txt",
+    make_option(c("-t", "--taxonomy"), type="character", default="binning/result/coverm/taxonomy_MAG.txt",
                 help="metadata file or metadata [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="result/coverm/",
+    make_option(c("-o", "--output"), type="character", default="binning/result/coverm/",
                 help="Output quantile value for filter feature table [default %default]") 
   )
   opts = parse_args(OptionParser(option_list=option_list))

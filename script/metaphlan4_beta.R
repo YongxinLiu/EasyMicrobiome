@@ -50,6 +50,7 @@ if (TRUE){
     make_option(c("-i", "--input"), type="character", default="result12/metaphlan4/taxonomy.tsv", help="Metaphlan4 relative abundance [default %default]"),
     make_option(c("-g", "--metadata"), type="character", default="result12/metadata.txt", help="Metaphlan4 [default %default]"),
     make_option(c("-t", "--taxonomy"), type="numeric", default="7", help="Taxonomy level [default %default]"),
+    make_option(c("-m", "--method"), type="character", default="bray", help="Distance method [default %default]"),
     make_option(c("-o", "--output"), type="character", default="", help="Output Metaphlan4 beta diversity filename [default %default]")
   )
   opts = parse_args(OptionParser(option_list=option_list))
@@ -151,8 +152,8 @@ colnames(level.reset)[2] = 'Group2'
 
 rownames(level.reset) = level.reset[,1]
 
-level_distance = vegdist(level.reset[,-c(1:8)])  #Get β diversity distance matrix, default method was "bray"
+level_distance = vegdist(level.reset[,-c(1:8)], method = opts$method)  #Get β diversity distance matrix, default method was "bray"
 level_distance = as.matrix(level_distance)
 
 #Export diversity table
-write.table(level_distance, file=paste(opts$output, ".txt", sep = ""), append = FALSE, sep="\t", quote=F, row.names=F, col.names=T)
+write.table(level_distance, file=paste(opts$output, "_",opts$method, ".txt", sep = ""), append = FALSE, sep="\t", quote=F, row.names=F, col.names=T)
