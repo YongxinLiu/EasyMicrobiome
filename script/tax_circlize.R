@@ -43,32 +43,6 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
   install.packages(p, repos=site)
   require("optparse",character.only=T)
 }
-
-
-site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-
-options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
-
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager", repos = site)
-
-a = rownames(installed.packages())
-
-install_bioc <- c("circlize")
-
-for (i in install_bioc) {
-  if (!i %in% a)
-    BiocManager::install(i, update = F, site_repository=site)
-    a = rownames(installed.packages())
-}
-
-if (!"amplicon" %in% a){
-  devtools::install_github("microbiota/amplicon")
-}
-
-
-
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
@@ -80,7 +54,7 @@ if (TRUE){
                 help="Design file or metadata [default %default]"),
     make_option(c("-n", "--group"), type="character", default="Group",
                 help="Group name [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="",
+    make_option(c("-o", "--output"), type="character", default="result2/tax/",
                 help="Output directory; name according to input [default %default]"),
     make_option(c("-w", "--width"), type="numeric", default=89,
                 help="Figure width in mm [default %default]"),

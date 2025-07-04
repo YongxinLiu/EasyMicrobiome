@@ -4,9 +4,9 @@
 set -e
 
 # 默认参数 Default parameter
-input=result/compare/A-B.txt
-design=result/metadata.tsv
-taxonomy=result/taxonomy.txt
+input=result2/compare/saliva_plaque2.txt
+design=result2/metadata.txt
+taxonomy=result2/taxonomy.txt
 group=Group
 output=""
 order=FALSE

@@ -53,7 +53,7 @@ if (TRUE){
                 help="Feature table [default %default]"),
     make_option(c("-t", "--threshold"), type="numeric", default=0.1,
                 help="Threshold of relative abundance 0.1% [default %default]"),
-    make_option(c("-d", "--design"), type="character", default="result/metadata.tsv",
+    make_option(c("-d", "--design"), type="character", default="result/metadata.txt",
                 help="Design file or metadata [default %default]"),
     make_option(c("-n", "--group"), type="character", default="Group",
                 help="Group name [default %default]"),
@@ -65,7 +65,7 @@ if (TRUE){
                 help="Threshold of P-value [default %default]"),
     make_option(c("-f", "--fdr"), type="numeric", default=0.1,
                 help="Threshold of FDR [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="",
+    make_option(c("-o", "--output"), type="character", default="result2/compare/",
                 help="Output directory; name according to input [default %default]"),
     make_option(c("-w", "--width"), type="numeric", default=89,
                 help="Figure width [default %default]"),
@@ -114,5 +114,6 @@ p = ggplot(diff, aes(x=log2FC, y=log2CPM, color=level)) +
   annotate("text",x=3,y=15,label=table(diff$level)[2]) +
   main_theme
 p
-ggsave(opts$output, p, width = opts$width, height = opts$height, units = "mm")
+ggsave(opts$output, p, width = opts$width, height = opts$height, device = "pdf", units = "mm")
+#ggsave(paste0(opts$output, compare, "_", "heatmap.pdf"), plot = p, width = opts$width, height = opts$height, units = "mm")
 
