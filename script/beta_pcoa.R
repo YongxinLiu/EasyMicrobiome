@@ -91,3 +91,19 @@ p <- ggplot(data, aes(x = PCoA1, y = PCoA2)) +
 
 # 保存图像
 ggsave(opt$output, plot = p, device = "pdf", width = 6, height = 5.5)
+
+# PerMANOVA 置换多元方差分析
+# 距离指数 Distance matrix
+dis = distance_matrix
+sub_design = group
+idx = rownames(sub_design) %in% rownames(dis)
+sub_design = sub_design[idx,]
+sub_dis = dis[rownames(sub_design),rownames(sub_design)]
+dis1 <- as.dist(sub_dis)
+
+# anonis
+adonis_result <- (adonis2(dis1~Group, data = sub_design, permutations = 999))
+p_val <- adonis_result$`Pr(>F)`[1]
+print(paste0("PERMANOVA 分析的 p 值为 ", signif(p_val, 3),
+             ifelse(p_val < 0.05, "，结果具有统计学显著性。", "，结果无统计学显著性。")))
+
