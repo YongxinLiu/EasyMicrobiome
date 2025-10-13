@@ -47,11 +47,11 @@ color_palette <- c("#c74732", "#1EB5B8", "#A07DB7", "#edae11", "#0f6657",  "#7AA
 # 依次处理各个多样性指数
 for (alpha in alpha_indices) {
   # 计算 t 检验 p 值
-  pval_vec <- sapply(comparisons, function(x) {
-    subset_data <- subset(merged_data, merged_data[[group_col]] %in% x)
-    t.test(as.formula(paste(alpha, "~", group_col)), data = subset_data)$p.value
-  })
-  p_values[[paste0(alpha, "_pval")]] <- pval_vec
+  #pval_vec <- sapply(comparisons, function(x) {
+  #  subset_data <- subset(merged_data, merged_data[[group_col]] %in% x)
+  #  t.test(as.formula(paste(alpha, "~", group_col)), data = subset_data)$p.value
+  #})
+  #p_values[[paste0(alpha, "_pval")]] <- pval_vec
   
   # 计算显著性标记位置
   ymax <- max(merged_data[[alpha]], na.rm = TRUE)
