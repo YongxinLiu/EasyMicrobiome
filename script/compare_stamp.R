@@ -11,8 +11,8 @@
 
 #----1.1 功能描述 Function description#----
 
-# 程序功能：物种组成弦图
-# Functions: Taxonomy circlize
+# 程序功能：物种组成比较STAMP分析
+# Functions: STAMP analysis
 
 options(warn = -1) # Turn off warning
 
@@ -46,36 +46,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
   install.packages(p, repos=site)
   require("optparse",character.only=T)
 }
-
-
-site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-
-options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
-
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager", repos = site)
-
-a = rownames(installed.packages())
-
-install_bioc <- c("dplyr")
-
-for (i in install_bioc) {
-  if (!i %in% a)
-    BiocManager::install(i, update = F, site_repository=site)
-    a = rownames(installed.packages())
-}
-
-if (!"amplicon" %in% a){
-  devtools::install_github("microbiota/amplicon")
-}
-
-
 # 解析参数-h显示帮助信息
 if (TRUE){
     option_list=list(
         # 原始OTU表counts值
-        make_option(c("-i", "--input"), type="character", default="result/otutab.txt", # otutab.txt stamp/tax_6Genus.txt
+        make_option(c("-i", "--input"), type="character", default="result/tax/sum_g2.txt", # otutab.txt stamp/tax_6Genus.txt
                     help="OTU table in counts;  [default %default]"),
         # 元数据/实验设计文件
         make_option(c("-d", "--metadata"), type="character", default="result/metadata.txt",
@@ -84,7 +59,7 @@ if (TRUE){
         make_option(c("-n", "--group"), type="character", default="Group",
                     help="Group name;  [default %default]"),
         # 组间比较
-        make_option(c("-c", "--compare"), type="character", default="KO-OE",
+        make_option(c("-c", "--compare"), type="character", default="feces-plaque",
                     help="Groups comparison;  [default %default]"),
         # 组间比较方法
         make_option(c("-m", "--method"), type="character", default="t.test",
@@ -99,13 +74,13 @@ if (TRUE){
         make_option(c("-t", "--threshold"), type="numeric", default=0.1,
                     help="Relative abundance,  [default %default]"),
         # holm, hochberg, hommel, bonferroni, BH, BY, fdr, none
-        make_option(c("-o", "--output"), type="character", default="result/stamp/",
+        make_option(c("-o", "--output"), type="character", default="result/tax/",
                     help="Output prefix; [default %default]"),
         # 图片宽mm
-        make_option(c("-w", "--width"), type="numeric", default=89,
+        make_option(c("-w", "--width"), type="numeric", default=128,
                     help="Figure width;  [default %default]"),
         # 图片高mm
-        make_option(c("-e", "--height"), type="numeric", default=59,
+        make_option(c("-e", "--height"), type="numeric", default=72,
                     help="Figure heidth;  [default %default]")
     )
     opts=parse_args(OptionParser(option_list=option_list))
@@ -134,7 +109,8 @@ suppressWarnings(dir.create(dirname(opts$output), showWarnings = F))
 #----1.3. 加载包 Load packages#----
 # suppressWarnings(suppressMessages(library(amplicon)))
 # 依赖包列表：差异分析、绘图、热图、数据变换和开发者工具
-package_list=c("tidyverse", "ggplot2","BiocManager","pheatmap","dplyr","devtools")
+package_list=c("tidyverse", "ggplot2","BiocManager","pheatmap","dplyr",
+               "devtools","patchwork","purrr","broom")
 # 判断R包加载是否成功来决定是否安装后再加载
 for(p in package_list){
     if(!suppressWarnings(suppressMessages(require(p, character.only=TRUE, quietly=TRUE, warn.conflicts=FALSE)))){
@@ -192,40 +168,67 @@ data1$Group <- as.factor(data1$Group)
 
 ## t-test
 
-if (opts$method == "t.test"){
-diff <- data1 %>% 
-    select_if(is.numeric) %>%
-    map_df(~ broom::tidy(t.test(. ~ Group,data=data1)), .id='var')
-# c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")
-diff$p.value <- p.adjust(diff$p.value, opts$fdr)
-diff <- diff %>% filter(p.value < opts$pvalue)
-}
+# if (opts$method == "t.test"){
+# diff <- data1 %>% 
+#     select_if(is.numeric) %>%
+#     map_df(~ broom::tidy(t.test(. ~ Group,data=data1)), .id='var')
+# # c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")
+# diff$p.value <- p.adjust(diff$p.value, opts$fdr)
+# diff <- diff %>% filter(p.value < opts$pvalue)
+# }
 
-## wilcox
-if (opts$method == "wilcox"){
-    diff1 <- data1 %>%
-    select_if(is.numeric) %>%
-    map_df(~ broom::tidy(wilcox.test(. ~ Group,data=data1)), .id='var')
+# diff1 <- data1 %>%
+#   select_if(is.numeric) %>%
+#   map_df(~ broom::tidy(wilcox.test(. ~ Group,data=data1)), .id='var')
+# 
+# diff1$p.value <- p.adjust(diff1$p.value, opts$fdr)
+# diff1 <- diff1 %>% dplyr::filter(p.value < opts$pvalue)
 
-diff1$p.value <- p.adjust(diff1$p.value, opts$fdr)
-diff1 <- diff %>% dplyr::filter(p.value < opts$pvalue)
-}
+# diff1 <- data1 %>%
+#   select_if(is.numeric) %>%
+#   map_df(~ broom::tidy(wilcox.test(. ~ Group, data = data1, conf.int = TRUE, conf.level = 0.95)), 
+#          .id = "var")
+
+diff1 <- data1 %>%
+  select_if(is.numeric) %>%
+  map_df(function(x) {
+    tryCatch(
+      broom::tidy(wilcox.test(x ~ data1$Group, conf.int = TRUE, conf.level = 0.95)),
+      error = function(e) tibble(
+        statistic = NA,
+        p.value = NA,
+        estimate = NA,
+        conf.low = NA,
+        conf.high = NA,
+        method = NA,
+        alternative = NA
+      )
+    )
+  }, .id = "var")
+
+
+# 多重检验校正
+diff1$p.value <- p.adjust(diff1$p.value, method = "fdr")
+
+# 筛选显著结果
+diff1 <- diff1 %>% filter(p.value < opts$pvalue)
+
 
 ## 绘图数据构建
 ## 左侧条形图
-abun.bar <- data1[,c(diff$var,"Group")] %>% 
-    tidyr::gather(variable,value,-Group) %>% 
+abun.bar <- data1[,c(diff1$var,"Group")] %>% 
+    gather(variable,value,-Group) %>% 
     group_by(variable,Group) %>% 
-    summarise(Mean=mean(value))
+    dplyr::summarise(Mean=mean(value))
 
 ## 右侧散点图
-diff.mean <- diff[,c("var","estimate","conf.low","conf.high","p.value")]
+diff.mean <- diff1[,c("var","estimate","conf.low","conf.high","p.value")]
 diff.mean$Group <- c(ifelse(diff.mean$estimate >0,levels(data1$Group)[1],
                             levels(data1$Group)[2]))
 diff.mean <- diff.mean[order(diff.mean$estimate,decreasing=TRUE),]
 
 ## 左侧条形图
-library(ggplot2)
+#library(ggplot2)
 cbbPalette <- c("#E69F00", "#56B4E9")
 abun.bar$variable <- factor(abun.bar$variable,levels=rev(diff.mean$var))
 p1 <- ggplot(abun.bar,aes(variable,Mean,fill=Group)) +
@@ -309,11 +312,18 @@ p3 <- ggplot(diff.mean,aes(var,estimate,fill=Group)) +
 
 #----3.2 保存表格 Saving#----
 ## 图像拼接
-library(patchwork)
+#library(patchwork)
 (p <- p1 + p2 + p3 + plot_layout(widths=c(4,6,2)))
 
 ## 保存图像
-ggsave(paste0(opts$output, "_", gsub(".txt", "", basename(opts$input)), ".pdf"), p, width=opts$width*2, height=opts$height*dim(diff)[1]/10, units="mm")
-#----3.2 保存表格 Saving#----
-filename=paste0(opts$output, "_", basename(opts$input))
-write.table(diff, file=filename, append=F, quote=F, sep='\t', row.names=F, col.names=T)
+# 保存为 PDF
+ggsave(
+  filename = paste0(opts$output, "_STAMP.pdf"),  # 输出文件名
+  plot = p,                                      # 要保存的图对象
+  width = opts$width,                            # 使用命令行参数指定宽度
+  height = opts$height,                          # 使用命令行参数指定高度
+  units = "mm",                                  # 单位（inch 比 mm 更稳）
+  dpi = 300,                                     # 分辨率（用于高质量出版）
+  device = cairo_pdf                             # 确保在 Windows 中文路径下不乱码
+)
+
