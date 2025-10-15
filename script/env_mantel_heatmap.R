@@ -14,11 +14,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 
 # 设置命令行参数
 option_list <- list(
-  make_option(c("-i", "--input"), type="character", default="result2/tax/otutab2.txt",
+  make_option(c("-i", "--input"), type="character", default="result/tax/otutab2.txt",
               help="OTU composition [default %default]"),
-  make_option(c("-n", "--env"), type = "character", default = "result2/tax/env_amplicon.txt", 
+  make_option(c("-n", "--env"), type = "character", default = "result/tax/env_amplicon.txt", 
               help = "Environment variables"),
-  make_option(c("-o", "--output"), type="character", default="result2/tax/",
+  make_option(c("-o", "--output"), type="character", default="result/tax/",
               help="Output directory [default %default]"),
   make_option(c("-w", "--width"), type="numeric", default=120 * 1.5,
               help="Figure width (mm) [default %default]"),
@@ -39,7 +39,7 @@ for(p in p_list){if (!requireNamespace(p)){install.packages(p)}
 
 # 基于github安装
 library(devtools)
-if(!requireNamespace("ggradar", quietly = TRUE))
+if(!requireNamespace("linkET", quietly = TRUE))
   install_github("Hy4m/linkET", force = TRUE)
 
 # install.packages('ggtern')
@@ -78,7 +78,8 @@ df_mantel <- mantel_test(df, env,
 pdf(paste0(opts$output, "mantel_test_right.pdf"), width = 10, height = 8)  # Adjust width and height as needed
 # Plotting
 qcorrplot(correlate(env), type = "lower", diag = FALSE) +
-  geom_square() +
+  #geom_square(aes(fill = r)) +
+  geom_tile()+
   geom_couple(
     aes(
       xend = .xend + 1.25,  # Define end of line for connections
@@ -121,7 +122,8 @@ dev.off()  # Close the PDF device
 pdf(paste0(opts$output, "mantel_test_left.pdf"), width = 10, height = 8)  # Adjust width and height as needed
 # Plotting
 qcorrplot(correlate(env), type = "upper", diag = FALSE) +
-  geom_square() +
+  #geom_square() +
+  geom_tile()+
   geom_couple(
     aes(
       xend = .xend - 0.5,  # Define end of line for connections
