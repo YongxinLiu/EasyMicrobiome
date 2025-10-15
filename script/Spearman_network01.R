@@ -14,13 +14,13 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 
 # 设置命令行参数
 option_list <- list(
-  make_option(c("-i", "--input"), type="character", default="result2/tax/otutab_amplicon.txt",
+  make_option(c("-i", "--input"), type="character", default="result/tax/otutab_amplicon.txt",
               help="OTU/ASV table [default %default]"),
-  make_option(c("-g", "--group"), type = "character", default = "result2/tax/sample_amplicon.txt", 
+  make_option(c("-g", "--group"), type = "character", default = "result/tax/sample_amplicon.txt", 
               help = "Group information [default %default]"),
-  make_option(c("-t", "--tax"), type = "character", default = "result2/tax/taxonomy_amplicon.txt", 
+  make_option(c("-t", "--tax"), type = "character", default = "result/tax/taxonomy_amplicon.txt", 
               help = "Taxonomy information [default %default]"),
-  make_option(c("-o", "--output"), type="character", default="result2/tax/",
+  make_option(c("-o", "--output"), type="character", default="result/tax/",
               help="Output directory [default %default]"),
   make_option(c("-w", "--width"), type="numeric", default=120 * 1.5,
               help="Figure width (mm) [default %default]"),
@@ -91,7 +91,7 @@ library(ggClusterNet)
 library(phyloseq)
 library(tidyverse)
 #data(ps)
-otupath = "./result2/"
+otupath = "./result/"
 #  新网络分析-2023年末更新#--------
 
 netpath = paste(otupath,"/network.new/",sep = "")
