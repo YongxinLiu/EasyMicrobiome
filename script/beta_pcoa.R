@@ -1,109 +1,112 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages({
-  library(optparse)
-  library(vegan)
-  library(ggplot2)
-})
+# Copyright 2016-2023 Yong-Xin Liu <liuyongxin@caas.cn>
 
-# 设置命令行参数
-option_list <- list(
-  make_option(c("-i", "--input"), type = "character", help = "OTU count 表格文件（行为OTU，列为样本）"),
-  make_option(c("-m", "--metadata"), type = "character", help = "样本分组文件（包含Group列）"),
-  make_option(c("-g", "--group"), type = "character", default = "Group", help = "元数据中用于分组的列名 [默认: %default]"),
-  make_option(c("-o", "--output"), type = "character", default = "PCoA.pdf", help = "输出PDF文件路径")
-)
+# If used this script, please cited:
+# Yong-Xin Liu, Lei Chen, Tengfei Ma, Xiaofang Li, Maosheng Zheng, Xin Zhou, Liang Chen, Xubo Qian, Jiao Xi, Hongye Lu, Huiluo Cao, Xiaoya Ma, Bian Bian, Pengfan Zhang, Jiqiu Wu, Ren-You Gan, Baolei Jia, Linyang Sun, Zhicheng Ju, Yunyun Gao, Tao Wen, Tong Chen. 2023. EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. iMeta 2: e83. https://doi.org/10.1002/imt2.83
 
-# 解析命令行
-opt_parser <- OptionParser(option_list = option_list)
-opt <- parse_args(opt_parser)
+# 手动运行脚本请，需要设置工作目录，使用 Ctrl+Shift+H 或 Session - Set Work Directory - Choose Directory / To Source File Location 设置工作目录
 
-# 检查必要参数
-if (is.null(opt$input) || is.null(opt$metadata)) {
-  print_help(opt_parser)
-  stop("请提供输入的 OTU 表文件和元数据文件", call. = FALSE)
+# 更新
+# 2021/6/27: 添加显示标签的功能
+# 2021/9/9: 添加是否组间统计的选项 --stat FALSE
+
+#----1. 参数 Parameters#----
+
+#----1.1 功能描述 Function description#----
+
+# 程序功能：Beta多样性主坐标分析
+# Functions: PCoA of Beta distance matrix
+
+options(warn = -1) # Turn off warning
+
+
+## 设置输入输出文件和参数
+
+# 修改下面`default=`后面的文件和参数。
+#
+# 输入文件为距离矩阵(如bray_curtis.txt)+分组信息(metadata.txt)
+#
+# 输入文件"-i", "--input"，result/beta/bray_curtis.txt; beta多样性距离矩阵文件，有多种距离可选，常用bray_curtis、jaccard、unifrac和unifrac_binary
+#
+# 实验设计"-d", "--design"，默认`result/metadata.txt`，可手动修改文件位置；
+#
+# 分组列名"-n", "--group"，默认将metadata.txt中的Group列作为分组信息，可修改为任意列名；
+#
+# 图片宽"-w", "--width"，默认89 mm，根据图像布局可适当增大或缩小
+#
+# 图片高"-e", "--height"，默认59 mm，根据图像布局可适当增大或缩小
+#
+# 分组列名"-o", "--output"，输出目录，默认同输入+.pcoa.pdf；
+#
+
+
+#----1.2 参数缺少值 Default values#----
+# 设置清华源加速下载
+site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+# 判断命令行解析是否安装，安装并加载
+if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
+  install.packages(p, repos=site)
+  require("optparse",character.only=T)
 }
+# 解析参数-h显示帮助信息
+if (TRUE){
+  option_list = list(
+    make_option(c("-i", "--input"), type="character", default="result/beta/bray_curtis.txt",
+                help="Beta distance matrix [default %default]"),
+    make_option(c("-d", "--design"), type="character", default="result/metadata.txt",
+                help="Design file or metadata [default %default]"),
+    make_option(c("-n", "--group"), type="character", default="Group",
+                help="Group name [default %default]"),
+    make_option(c("-l", "--label"), type="logical", default=FALSE,
+                help="Design file or metadata [default %default]"),
+    make_option(c("-s", "--stat"), type="logical", default=TRUE,
+                help="Open pair-wise stat [default %default]"),
+    make_option(c("-o", "--output"), type="character", default="",
+                help="Output directory; name according to input [default %default]"),
+    make_option(c("-w", "--width"), type="numeric", default=89,
+                help="Figure width in mm [default %default]"),
+    make_option(c("-e", "--height"), type="numeric", default=59,
+                help="Figure heidth in mm [default %default]")
+  )
+  opts = parse_args(OptionParser(option_list=option_list))
+  # suppressWarnings(dir.create(opts$output))
+}
+# 设置输出文件缺省值，如果为空，则为输入+pcoa.pdf
+if(opts$output==""){opts$output=paste0(opts$input,".pcoa.pdf")}
+opts$output = gsub(".txt","",opts$output)
+suppressWarnings(dir.create(dirname(opts$output), showWarnings = F))
 
-# 读取 OTU 表
-contigs <- read.delim(opt$input, row.names = 1, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE)
-contigs <- data.frame(t(contigs))
 
-# 预处理（log10转化并移除稀疏物种）
-contigs <- log10(contigs + 1)
-contigs <- contigs[, colSums(contigs > 0) > (0.1 * nrow(contigs))]
+#----1.3. 加载包 Load packages#----
 
-# Bray-Curtis 距离
-distance <- vegdist(contigs, method = "bray")
-distance_matrix <- as.matrix(distance)
-distance_matrix[is.na(distance_matrix)] <- 0
+suppressWarnings(suppressMessages(library(amplicon)))
 
-# 主坐标分析（PCoA）
-pcoa <- cmdscale(distance_matrix, k = (nrow(contigs) - 1), eig = TRUE)
-plot_data <- data.frame(pcoa$points)[, 1:2]
-names(plot_data) <- c("PCoA1", "PCoA2")
 
-# 计算百分比
-eig <- pcoa$eig
-PCOA1 <- format(100 * eig[1] / sum(eig), digits = 4)
-PCOA2 <- format(100 * eig[2] / sum(eig), digits = 4)
+#----2. 读取文件 Read files#----
 
-# 读取分组文件
-group <- read.delim(opt$metadata, row.names = 1, sep = "\t", stringsAsFactors = FALSE, check.names = FALSE)
+#----2.1 实验设计 Metadata#----
+metadata = read.table(opts$design, header=T, row.names=1, sep="\t", comment.char="", stringsAsFactors = F)
 
-# 合并分组信息
-data <- merge(plot_data, group, by = "row.names", all = TRUE)
-names(data)[1] <- "Sample"
-group_col <- opt$group
+#----2.1 距离矩阵Distance matrix#----
+distance_mat = read.table(opts$input, header=T, row.names=1, sep="\t", comment.char="")
 
-# 清除空分组
-data <- data[!is.na(data[[group_col]]) & data[[group_col]] != "", ]
 
-# 设置默认颜色和形状（根据分组自动生成）
-group_levels <- unique(data[[group_col]])
-n_groups <- length(group_levels)
-default_colors <- c("#1EB5B8", "#edae11","#A07DB7","#7AA82C", "#547aa5", "#916BBF", "#46ACC8")[1:n_groups]
-default_shapes <- c(6, 21, 23, 24, 22, 25)[1:n_groups]
 
-# 画图
-p <- ggplot(data, aes(x = PCoA1, y = PCoA2)) +
-  geom_point(aes_string(color = group_col, shape = group_col), size = 4) +
-  scale_color_manual(values = default_colors) +
-  scale_shape_manual(values = default_shapes) +
-  stat_ellipse(aes_string(color = group_col), linetype = "solid", level = 0.98, size = 0.85) +
-  labs(
-    x = paste0("PCoA1 (", PCOA1, "%)"),
-    y = paste0("PCoA2 (", PCOA2, "%)"),
-    title = "PCoA"
-  ) +
-  #theme_bw() +
-  theme_classic()+
-  theme(
-    plot.title = element_text(size = 20, face = "bold", hjust = 0.5),
-    axis.title = element_text(size = 15, face = "bold"),
-    axis.text = element_text(size = 20),
-    legend.title = element_blank(),
-    legend.text = element_text(size = 15),
-    legend.background = element_rect(fill = "transparent"),
-    legend.position = c(0.1, 0.1)
-  ) +
-  geom_vline(xintercept = 0, linetype = "dotted") +
-  geom_hline(yintercept = 0, linetype = "dotted")
+#----3. 绘图保存 Plotting and saving#----
 
-# 保存图像
-ggsave(opt$output, plot = p, device = "pdf", width = 6, height = 5.5)
+#----3.1 绘图 Plotting#----
+# 输入矩阵矩阵、元数据和分组列，返回ggplot2对象
+p = beta_pcoa(distance_mat, metadata, groupID = opts$group, label=opts$label)
 
-# PerMANOVA 置换多元方差分析
-# 距离指数 Distance matrix
-dis = distance_matrix
-sub_design = group
-idx = rownames(sub_design) %in% rownames(dis)
-sub_design = sub_design[idx,]
-sub_dis = dis[rownames(sub_design),rownames(sub_design)]
-dis1 <- as.dist(sub_dis)
+#---3.2 保存 Saving#----
+# 大家可以修改图片名称和位置，长宽单位为毫米
+ggsave(opts$output, p, width = opts$width, height = opts$height, units = "mm")
 
-# anonis
-adonis_result <- (adonis2(dis1~Group, data = sub_design, permutations = 999))
-p_val <- adonis_result$`Pr(>F)`[1]
-print(paste0("PERMANOVA 分析的 p 值为 ", signif(p_val, 3),
-             ifelse(p_val < 0.05, "，结果具有统计学显著性。", "，结果无统计学显著性。")))
+#---3.2 组间统计 Stat#----
+# statistic each pairwise by adonis
+# 结果文件默认见beta_pcoa_stat.txt
+if (opts$stat){
+	beta_pcoa_stat(distance_mat, metadata, groupID = opts$group)
+}
 
