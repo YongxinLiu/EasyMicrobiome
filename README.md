@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.21
+版本(Version)：EasyMicrobiome v1.24
 
-更新时间(Update)：2024/4/12
+更新时间(Update)：2025/10/17
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 
@@ -19,12 +19,13 @@ The software package will be updated and generated almost every quarter, downloa
 多种下载软件和数据库的方法：任选其一即可
 Multiple ways to download software and databases: just choose one
 
-国内可备选微生物所下载站 http://nmdc.cn/datadownload 和百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
 
-	# 方法1. git下载，可使用wget或主页中直接下载压缩包
+	# 方法1. git下载，可使用wget或主页中直接下载压缩包 （最新）
 	git clone https://github.com/YongxinLiu/EasyMicrobiome
 
-	# 方法2. 备用链接下载
+  方法2.百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
+
+	# 方法3. 备选微生物所下载站 http://nmdc.cn/datadownload 
 	wget -c ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz
 	tar xvzf EasyMicrobiome.tar.gz
 
@@ -59,7 +60,8 @@ Multiple ways to download software and databases: just choose one
 - csvtk 0.25.0 to 0.30.0
 - seqkit 2.4 to 2.8
 
-
+### v1.24 2025/10/17 update
+- vsearch v2.15.2 update to v2.30.1, add libbz2.dll和zlib1.dll and support zip and gz file
 
 
 ## 软件清单
@@ -181,8 +183,14 @@ Multiple ways to download software and databases: just choose one
 
 If used this script, please cited:
 
-**Yong-Xin Liu**, Lei Chen, Tengfei Ma, Xiaofang Li, Maosheng Zheng, Xin Zhou, Liang Chen, Xubo Qian, Jiao Xi, Hongye Lu, Huiluo Cao, Xiaoya Ma, Bian Bian, Pengfan Zhang, Jiqiu Wu, Ren-You Gan, Baolei Jia, Linyang Sun, Zhicheng Ju, Yunyun Gao, **Tao Wen**, **Tong Chen**. 2023. EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. **iMeta** 2: e83. https://doi.org/10.1002/imt2.83
+Hao Luo, et al. 2025. EasyAmplicon 2: Expanding PacBio and Nanopore Long Amplicon Sequencing Analysis Pipeline for Microbiome. Advanced Science 12: https://doi.org/https://doi.org/10.1002/advs.202512447
 
-Copyright 2016-2024 Yong-Xin Liu <liuyongxin@caas.cn>, Tao Wen <taowen@njau.edu.cn>, Tong Chen <chent@nrc.ac.cn>
+Yousuf, et al. 2024. Unveiling microbial communities with EasyAmplicon: 
+A user-centric guide to perform amplicon sequencing data analysis. 
+iMetaOmics 1: e42. https://doi.org/10.1002/imo2.42
 
+Yong-Xin Liu, Lei Chen, Tengfei Ma, et al. 2023. 
+EasyAmplicon: An easy-to-use, open-source, reproducible, and community-based pipeline for amplicon data analysis in microbiome research. 
+iMeta 2: e83. https://doi.org/10.1002/imt2.83
 
+Copyright 2016-2025 Yong-Xin Liu <liuyongxin@caas.cn>, Tao Wen <taowen@njau.edu.cn>, Tong Chen <chent@nrc.ac.cn>
