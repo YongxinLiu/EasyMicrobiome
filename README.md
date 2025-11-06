@@ -62,6 +62,7 @@ Multiple ways to download software and databases: just choose one
 
 ### v1.24 2025/10/17 update
 - vsearch v2.15.2 update to v2.30.1, add libbz2.dll和zlib1.dll and support zip and gz file
+- update fastp 0.23.4 to 1.0.1
 
 
 ## 软件清单
