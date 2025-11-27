@@ -1,14 +1,15 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2024 De-feng Bai <baidefeng@caas.cn>
+# Copyright 2024-2026 Defeng Bai <baidefeng@caas.cn>
 
 # If used this script, please cited:
-# Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, Yang Bai. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein Cell 2021(12) 5:315-330 doi: 10.1007/s13238-020-00724-8
+# Bai, et al. 2025. EasyMetagenome: A User‐Friendly and Flexible Pipeline for Shotgun Metagenomic Analysis in Microbiome Research. iMeta 4: e70001. https://doi.org/10.1002/imt2.70001
 
 # 手动运行脚本请，需要设置工作目录，使用 Ctrl+Shift+H 或 Session - Set Work Directory - Choose Directory / To Source File Location 设置工作目录
 
 # 更新
-# 2021/5/31: 更新引文，添加数据表转置和标准化的选项
+# 2024/11/12: 增加alpha多样性绘图样式
+# 2025/11/26: 规范代码
 
 # 1.1 程序功能描述和主要步骤
 
@@ -37,47 +38,43 @@ options(warn = -1) # Turn off warning
 # 图片高"-e", "--height"，默认59 mm，根据图像布局可适当增大或缩小
 
 
-# 1.2 解析命令行
-# 设置清华源加速下载
+# 1.2 依赖包安装
+
 site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-# 判断命令行解析是否安装，安装并加载
-if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
-  install.packages(p, repos=site)
-  require("optparse",character.only=T)
-}
-
-
-site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-
-options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
-
-
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager", repos = site)
-
 a = rownames(installed.packages())
 
-install_bioc <- c("ggplot2", "multcompView")
-
-for (i in install_bioc) {
+# install CRAN
+install_CRAN <- c("ggplot2", "BiocManager", "optparse", "scales", "ggpubr")
+for (i in install_CRAN) {
   if (!i %in% a)
-    BiocManager::install(i, update = F, site_repository=site)
+    install.packages(i, repos = site)
+  require(i,character.only=T)
   a = rownames(installed.packages())
 }
 
+# install bioconductor
+install_bioc <- c("ggplot2", "multcompView")
+for (i in install_bioc) {
+  if (!i %in% a)
+    BiocManager::install(i, update = F)
+  a = rownames(installed.packages())
+}
+
+# install github
 if (!"amplicon" %in% a){
   devtools::install_github("microbiota/amplicon")
 }
 
 
+# 1.3 解析命令行
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-i", "--input"), type="character", default="metaphlan4/alpha2.txt",
+    make_option(c("-i", "--input"), type="character", default="metaphlan4/alpha.txt",
                 help="Alpha diversity matrix [default %default]"),
     make_option(c("-a", "--alpha_index"), type="character", default="shannon",
                 help="Group name [default %default]"),
-    make_option(c("-d", "--design"), type="character", default="metadata2.txt",
+    make_option(c("-d", "--design"), type="character", default="metadata.txt",
                 help="Design file or metadata [default %default]"),
     make_option(c("-t", "--transpose"), type="logical", default=FALSE,
                 help="Design file or metadata [default %default]"),
@@ -99,12 +96,33 @@ if (TRUE){
 suppressWarnings(dir.create(dirname(opts$output), showWarnings = F))
 
 
+# 2. 依赖关系检查、安装和加载
+
+# 依赖包列表
+package_list <- c(
+  "ggplot2", "BiocManager", "optparse", "scales", "ggpubr", "amplicon"
+)
+
+# 批量安装和加载
+for (p in package_list) {
+  # 如果未安装，则安装
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, repos = "https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
+  }
+  
+  # 批量加载，抑制警告和消息
+  suppressWarnings(
+    suppressMessages(
+      library(p, character.only = TRUE)
+    )
+  )
+}
+
+
+# 3. 构建绘制Alpha多样性的箱线图
 index = opts$alpha_index
 # Source and edited from package amplicon
 alpha_boxplot2 <- function(alpha_div, metadata, index = "shannon", groupID = "group", levels = c(), outlier = FALSE){
-  #groupID = opts$group
-  #levels = c("Cancer","Normal")
-  #index = opts$alpha_index
   p_list = c("ggplot2", "dplyr", "multcompView")
   for (p in p_list) {
     if (!requireNamespace(p)) {
@@ -168,13 +186,7 @@ alpha_boxplot2 <- function(alpha_div, metadata, index = "shannon", groupID = "gr
   p1
 }
 
-
-# 2. 依赖关系检查、安装和加载
-suppressWarnings(suppressMessages(library(amplicon)))
-suppressWarnings(suppressMessages(library(scales)))
-suppressWarnings(suppressMessages(library(ggpubr)))
-suppressWarnings(suppressMessages(library(ggplot2)))
-
+# 设置图主题
 mytheme = theme_bw() + theme(text = element_text(family = "sans", size = 8))+
   theme(legend.position="none",
         legend.text = element_text(size=10),
@@ -191,11 +203,11 @@ mytheme = theme_bw() + theme(text = element_text(family = "sans", size = 8))+
   theme(axis.text.x=element_text(angle=0,vjust=1, hjust=0.6))+
   theme(axis.line = element_line(size = 0.1, colour = "black"))
 
+
 # 3. 读取输入文件
 
 # 读取OTU表
 alpha_div = read.table(opts$input, header=T, row.names=1, sep="\t", comment.char="")
-
 
 # 条件判断是否转置
 if (opts$transpose){
@@ -217,5 +229,4 @@ if (opts$xlabAngle){
 # Saving figure
 # 保存图片，大家可以修改图片名称和位置，长宽单位为毫米
 ggsave(paste0(opts$output,"p_boxplot_",opts$alpha_index,".pdf"), p, width = opts$width, height = opts$height, units = "mm")
-
 
