@@ -1,18 +1,21 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2016-2021 Yong-Xin Liu <yxliu@genetics.ac.cn / metagenome@126.com>
+# Copyright 2024-2026 Defeng Bai <baidefeng@caas.cn>
 
 # If used this script, please cited:
-# Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, Yang Bai. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein Cell 2021(12) 5:315-330 doi: 10.1007/s13238-020-00724-8
+# Bai, et al. 2025. EasyMetagenome: A User‐Friendly and Flexible Pipeline for Shotgun Metagenomic Analysis in Microbiome Research. iMeta 4: e70001. https://doi.org/10.1002/imt2.70001
 
 # 手动运行脚本请，需要设置工作目录，使用 Ctrl+Shift+H 或 Session - Set Work Directory - Choose Directory / To Source File Location 设置工作目录
 
-#----1. 参数 Parameters#----
+# 更新
+# 2024/11/12：增加按丰度排序堆叠柱状图功能
+# 2025/11/27：规范代码
 
-#----1.1 功能描述 Function description#----
 
-# 程序功能：物种组成堆叠柱状图
-# Functions: Taxonomy stackplot
+# 1.1 程序功能描述和主要步骤
+
+# 程序功能：排序分面堆叠柱状图
+# Functions: Sort faceted stacked bar chart
 
 options(warn = -1) # Turn off warning
 
@@ -29,19 +32,45 @@ options(warn = -1) # Turn off warning
 #
 # 分组列名"-n", "--group"，默认将metadata.txt中的Group列作为分组信息，可修改为任意列名；
 #
+# 图例设置"-l", "--legend"，默认`6`，同一列最多显示6个；
+#
+# 颜色设置"-l", "--color"，默认`Paired`，设置ggplot2绘图颜色；
+#
 # 图片宽"-w", "--width"，默认89 mm，根据图像布局可适当增大或缩小
 #
 # 图片高"-e", "--height"，默认59 mm，根据图像布局可适当增大或缩小
 
 
-#----1.2 参数缺省值 Default values#----
-# 设置清华源加速下载
+# 1.2 依赖包安装
+
 site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-# 判断命令行解析是否安装，安装并加载
-if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
-  install.packages(p, repos=site)
-  require("optparse",character.only=T)
+a = rownames(installed.packages())
+
+# install CRAN
+install_CRAN <- c("ggplot2", "BiocManager", "optparse","patchwork","reshape2","magrittr",
+                  "ggprism", "dplyr", "plyr")
+for (i in install_CRAN) {
+  if (!i %in% a)
+    install.packages(i, repos = site)
+  require(i,character.only=T)
+  a = rownames(installed.packages())
 }
+
+# install bioconductor
+install_bioc <- c("ggplot2", "multcompView")
+for (i in install_bioc) {
+  if (!i %in% a)
+    BiocManager::install(i, update = F)
+  a = rownames(installed.packages())
+}
+
+# install github
+if (!"amplicon" %in% a){
+  devtools::install_github("microbiota/amplicon")
+}
+
+
+# 1.3 解析命令行
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
@@ -63,34 +92,54 @@ if (TRUE){
                 help="Figure heidth in mm [default %default]")
   )
   opts = parse_args(OptionParser(option_list=option_list))
-  # suppressWarnings(dir.create(opts$output))
 }
-# 设置输出文件缺省值，如果为空，则为输入+pcoa.pdf
+# 设置输出文件缺省值
 if(opts$output==""){opts$output=opts$input}
 
 
-#----1.3. 加载包 Load packages#----
+# 2. 依赖关系检查、安装和加载
+# 依赖包列表
+package_list <- c(
+  "ggplot2", "BiocManager", "optparse","patchwork","reshape2","magrittr",
+  "ggprism", "dplyr", "plyr"
+)
 
-suppressWarnings(suppressMessages(library(amplicon)))
-suppressWarnings(suppressMessages(library(patchwork)))
-suppressWarnings(suppressMessages(library(reshape2)))
-suppressWarnings(suppressMessages(library(magrittr)))
-suppressWarnings(suppressMessages(library(ggplot2)))
-suppressWarnings(suppressMessages(library(ggprism)))
-suppressWarnings(suppressMessages(library(dplyr)))
-suppressWarnings(suppressMessages(library(plyr)))
+# 批量安装和加载
+for (p in package_list) {
+  # 如果未安装，则安装
+  if (!requireNamespace(p, quietly = TRUE)) {
+    install.packages(p, repos = "https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
+  }
+  
+  # 批量加载，抑制警告和消息
+  suppressWarnings(
+    suppressMessages(
+      library(p, character.only = TRUE)
+    )
+  )
+}
 
-#----2. 读取文件 Read files#----
 
-#----2.1 实验设计 Metadata#----
+# suppressWarnings(suppressMessages(library(amplicon)))
+# suppressWarnings(suppressMessages(library(patchwork)))
+# suppressWarnings(suppressMessages(library(reshape2)))
+# suppressWarnings(suppressMessages(library(magrittr)))
+# suppressWarnings(suppressMessages(library(ggplot2)))
+# suppressWarnings(suppressMessages(library(ggprism)))
+# suppressWarnings(suppressMessages(library(dplyr)))
+# suppressWarnings(suppressMessages(library(plyr)))
+
+
+# 3. 读取输入文件
+
+# 实验设计 Metadata 
 metadata = read.table(opts$design, header=T, row.names=1, sep="\t", comment.char="", stringsAsFactors = F)
 
-#----2.2 物种组成矩阵Taxonomy matrix#----
-#taxonomy = read.table(opts$input, header=T, row.names=1, sep="\t", comment.char="", quote = "")
+# 物种组成矩阵 Taxonomy matrix
 taxonomy = read.table(opts$input, header=T, sep="\t", comment.char="", quote = "")
 
 
-# sum
+# 4. 分析绘图
 # 计算微生物相对丰度之和，避免有重复统计
 data = taxonomy
 data <- aggregate(.~ Taxonomy,data=data,sum)
@@ -207,9 +256,6 @@ p <- wrap_plots(plots) +
         axis.title.y = element_text(size = 10),
         plot.margin = unit(c(0.05, 0.05, 0.05, 0.05), "cm")) 
 
-# 保存图像
-# Save plot
-#ggsave("results/Phylum_fungi_top5_3.pdf", p03, width = 139 * 1.5, height = 80 * 1.5, unit = 'mm')
-#---3.2 保存 Saving#----
+# 保存 Saving 
 # 大家可以修改图片名称和位置，长宽单位为毫米
 ggsave(paste0(opts$output,".sample.order.pdf"), p, width = opts$width, height = opts$height, units = "mm")
