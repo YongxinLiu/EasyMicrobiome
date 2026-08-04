@@ -32,10 +32,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-i", "--Correlation"), type="character", default="metaphlan4/sxtr_cov_mat_Centenarians.tsv",
+    make_option(c("-R", "--Correlation"), type="character", default="metaphlan4/sxtr_cov_mat_Centenarians.tsv",
                 help="Metaphlan4 species table"),
     make_option(c("-P", "--Pvalue"), type="character", default="metaphlan4/sxtr_pvals_Centenarians.two_sided.tsv",
                 help="Unfiltered OTU table [default %default]"),
+    make_option("--Group", type="character"),
     make_option(c("-r", "--output"), type="character", default="metaphlan4/",
                 help="Output file for SparCC analysis in different groups  [default %default]") 
   )
@@ -46,11 +47,50 @@ print(opts)
 
 
 # Install related packages
-if (FALSE){
-  source("https://bioconductor.org/biocLite.R")
-  biocLite(c("reshape2","ggplot2","ggprism","dplyr","plyr",
-             "igraph","tidyverse","ggraph")) # ,"vegan"
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+packages <- c(
+  "reshape2",
+  "ggplot2",
+  "ggprism",
+  "dplyr",
+  "plyr",
+  "igraph",
+  "tidyverse",
+  "ggraph",
+  "magrittr"
+)
+
+installed <- rownames(installed.packages())
+missing_pkgs <- packages[!(packages %in% installed)]
+
+if(length(missing_pkgs) > 0){
+  install.packages(missing_pkgs, dependencies = TRUE)
 }
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+pkgs <- c(
+  "clusterProfiler",
+  "DOSE",
+  "enrichplot",
+  "ComplexHeatmap",
+  "pathview",
+  "KEGGREST"
+)
+
+for(pkg in pkgs){
+  if(!requireNamespace(pkg, quietly = TRUE)){
+    BiocManager::install(pkg, update = FALSE, ask = FALSE)
+  }
+}
+
+# if (!requireNamespace("clusterProfiler", quietly = TRUE))
+#   BiocManager::install("clusterProfiler", update = FALSE, ask = FALSE)
+
+#library(clusterProfiler)
+
 # load related packages
 suppressWarnings(suppressMessages(library("reshape2")))
 suppressWarnings(suppressMessages(library("ggplot2")))
@@ -61,6 +101,8 @@ suppressWarnings(suppressMessages(library("plyr")))
 suppressWarnings(suppressMessages(library("igraph")))
 suppressWarnings(suppressMessages(library("tidyverse")))
 suppressWarnings(suppressMessages(library("ggraph")))
+suppressWarnings(suppressMessages(library("magrittr")))
+suppressWarnings(suppressMessages(library("clusterProfiler")))
 
 
 #r.cor <- read.table("data3/r.cor_count_Y.txt", sep="\t", header=T, check.names=F,row.names = 1)
@@ -112,7 +154,7 @@ patients.clusters <- cluster_louvain(graph)
 V(graph)$Cluster <- patients.clusters$membership
 
 # save data
-write_graph(graph, file = paste(opts$output, "Centenarians_01.graphml", sep=""), format="graphml")
+# write_graph(graph, file = paste(opts$output, "Centenarians_01.graphml", sep=""), format="graphml")
 
 # 可视化方式1：基于Gephi软件进行可视化 https://gephi.org/
 # Visualized in Gephi software
@@ -147,7 +189,17 @@ V(g)$point.col <- color[match(V(g)$Cluster,names(color))]
 # The edge color is set according to the positive or negative correlation
 E(g)$color <- ifelse(E(g)$linecolor == "positive","#ff878c","#5ea6c2")
 
-pdf(file=paste(opts$output, "network_group_Centenarians_cluster.pdf", sep=""), width=10, height=12)
+#pdf(file=paste(opts$output, "network_group_Centenarians_cluster.pdf", sep=""), width=10, height=12)
+pdf(
+  file = paste0(
+    opts$output,
+    "/network_group_",
+    opts$Group,
+    "_cluster.pdf"
+  ),
+  width = 10,
+  height = 12
+)
 par(mar=c(5,2,1,2))
 plot.igraph(g, layout=layout5,
             vertex.color=V(g)$point.col,
