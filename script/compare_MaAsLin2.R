@@ -10,6 +10,7 @@
 # 更新
 # 2024/11/12：增加MaAsLin2方法用于组间差异比较
 # 2025/11/27：规范代码
+# 2026/5/22：更新软件包，规范代码
 
 
 # Clean enviroment object
@@ -54,45 +55,16 @@ options(warn = -1) # Turn off warning
 # 分组列名"-o", "--output"，默认为输出目录，输出差异分析结果文件;
 
 
-# 1.2 依赖包安装
-
-site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-a = rownames(installed.packages())
-
-# install CRAN
-install_CRAN <- c("optparse", "dplyr", "reshape2",  "readxl", "tibble",  "openxlsx",
-                  "foreach", "data.table",  "gridExtra", "scales", "ggplot2",  "ggh4x",
-                  "ggfortify", "ggvenn",  "ggrepel", "vegan", "pairwiseCI",  "vcd",
-                  "igraph", "sampling", "CVXR", "DescTools", "phyloseq")
-for (i in install_CRAN) {
-  if (!i %in% a)
-    install.packages(i, repos = site)
-}
-
-# install bioconductor
-install_bioc <- c( "phyloseq", "ANCOMBC", "Maaslin2")
-for (i in install_bioc) {
-  if (!i %in% a)
-    BiocManager::install(i, update = F) # , site_repository=site
-  a = rownames(installed.packages())
-}
-
-# install github
-if (!"amplicon" %in% a){
-  devtools::install_github("microbiota/amplicon")
-}
-
-
-# 1.3 解析命令行
+# 1. 解析命令行
 # 解析参数-h显示帮助信息
 suppressMessages(
   library("optparse")
 )
 if (TRUE){
   option_list = list(
-    make_option(c("-i", "--input"), type="character", default="metaphlan4/Species.txt",
+    make_option(c("-i", "--input"), type="character", default="result/metaphlan4/Species.txt",
                 help="Unfiltered OTU table [default %default]"),
-    make_option(c("-g", "--metadata"), type="character", default="metadata.txt",
+    make_option(c("-g", "--metadata"), type="character", default="result/metadata.txt",
                 help="metadata file or metadata [default %default]"),
     make_option(c("-a", "--min_abundance"), type="numeric", default="0",
                 help="Minimum abundance used for analysis [default %default]"),
@@ -112,7 +84,7 @@ if (TRUE){
                 help="Fixed effects [default %default]"),
     make_option(c("-c", "--correction"), type="character", default="BH",
                 help="Fixed effects [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="metaphlan4/",
+    make_option(c("-o", "--output"), type="character", default="result/metaphlan4/",
                 help="Output quantile value for filter feature table [default %default]")
   )
   opts = parse_args(OptionParser(option_list=option_list))
@@ -123,93 +95,58 @@ if (TRUE){
 
 # 2. 依赖关系检查、安装和加载
 
-suppress <- function(x){invisible(capture.output(suppressMessages(suppressWarnings(x))))}
+cran_repo <- "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
 
-# 依赖包列表
-package_list <- c(
-  "optparse","dplyr", "reshape2",  "readxl", "tibble",  "openxlsx",
-  "foreach", "data.table",  "gridExtra", "scales", "ggplot2",  "ggh4x",
-  "ggfortify", "ggvenn",  "ggrepel", "vegan", "pairwiseCI",  "vcd",
-  "igraph", "sampling", "CVXR", "DescTools", "phyloseq"
+# CRAN 包
+cran_pkgs <- c(
+  "optparse", "dplyr", "reshape2", "readxl", "tibble", "openxlsx",
+  "foreach", "data.table", "gridExtra", "scales", "ggplot2", "ggh4x",
+  "ggfortify", "ggvenn", "ggrepel", "vegan", "pairwiseCI", "vcd",
+  "igraph", "sampling", "CVXR", "DescTools", "devtools"
 )
 
-# 批量安装和加载
-for (p in package_list) {
-  # 如果未安装，则安装
-  if (!requireNamespace(p, quietly = TRUE)) {
-    install.packages(p, repos = "https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
+# Bioconductor 包
+bioc_pkgs <- c("phyloseq", "Maaslin2")
+
+# GitHub 包
+github_pkgs <- c("amplicon" = "microbiota/amplicon")
+
+
+# ---------- 安装 CRAN ----------
+for (pkg in cran_pkgs) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, repos = cran_repo)
   }
-  
-  # 批量加载，抑制警告和消息
-  suppressWarnings(
-    suppressMessages(
-      library(p, character.only = TRUE)
-    )
-  )
 }
 
+# ---------- 安装 Bioconductor ----------
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager", repos = cran_repo)
+}
 
-# # Install related packages
-# # 基于CRAN安装R包，检测没有则安装 Installing R packages based on CRAN and installing them if they are not detected
-# p_list = c("dplyr", "reshape2",  "readxl", "tibble",  "openxlsx",
-#            "foreach", "data.table",  "gridExtra", "scales", "ggplot2",  "ggh4x",
-#            "ggfortify", "ggvenn",  "ggrepel", "vegan", "pairwiseCI",  "vcd",
-#             "igraph", "sampling", "CVXR", "DescTools")
-# for(p in p_list){if (!requireNamespace(p)){install.packages(p)}
-#   library(p, character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)}
-# 
-# #### LOAD REQUIRED R PACKAGES ####
-# 
-# # options(BioC_mirror="https://mirrors.tuna.tsinghua.edu.cn/bioconductor")
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#   install.packages("BiocManager", repos = site)
-# a = rownames(installed.packages())
-# 
-# # install CRAN
-# install_CRAN <- c("ggplot2", "reshape2", "readxl", "tibble","openxlsx", "foreach", 
-#                   "data.table", "gridExtra","scales", "ggh4x", "ggfortify", "ggvenn",
-#                   "ggrepel", "vegan", "pairwiseCI", "vcd", "igraph")
-# for (i in install_CRAN) {
-#   if (!i %in% a)
-#   install.packages(i, repos = site)
-# }
-# 
-# # install bioconductor
-# install_bioc <- c( "phyloseq", "ANCOMBC", "Maaslin2")
-# for (i in install_bioc) {
-#   if (!i %in% a)
-#     BiocManager::install(i, update = F) # , site_repository=site
-#     a = rownames(installed.packages())
-# }
-# 
-# # install github
-# if (!"amplicon" %in% a){
-#   devtools::install_github("microbiota/amplicon")
-# }
+for (pkg in bioc_pkgs) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    BiocManager::install(pkg, update = FALSE, ask = FALSE)
+  }
+}
 
-# suppress <- function(x){invisible(capture.output(suppressMessages(suppressWarnings(x))))}
-# suppress(library(dplyr))
-# suppress(library(reshape2))
-# suppress(library(readxl))
-# suppress(library(phyloseq))
-# suppress(library(tibble))
-# suppress(library(openxlsx))
-# suppress(library(foreach))
-# suppress(library(data.table))
-# suppress(library(gridExtra))
-# suppress(library(scales))
-# suppress(library(ggplot2))
-# suppress(library(ggh4x))
-# suppress(library(ggfortify))
-# suppress(library(ggvenn))
-# suppress(library(ggrepel))
-# suppress(library(vegan))
-# suppress(library(pairwiseCI))
-# suppress(library(vcd))
-# # library(CVXR)
-# suppress(library(ANCOMBC))
-# suppress(library(Maaslin2))
-# suppress(library(igraph))
+# ---------- 安装 GitHub ----------
+for (pkg in names(github_pkgs)) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    devtools::install_github(github_pkgs[pkg])
+  }
+}
+
+# ---------- 批量加载 ----------
+all_pkgs <- c(cran_pkgs, bioc_pkgs, names(github_pkgs))
+
+invisible(
+  lapply(all_pkgs, function(pkg) {
+    suppressPackageStartupMessages(
+      library(pkg, character.only = TRUE)
+    )
+  })
+)
 
 
 # 3. 读取输入文件
@@ -263,25 +200,6 @@ library(sampling)
 sam_data = as.data.frame(sample_data(ps))
 common_columns = colnames(sam_data)[colnames(sam_data) %in% colnames(metadata)]
 input_metadata <- data.frame(sam_data[, common_columns])
-# capt<- capture.output(fits <- suppressWarnings(Maaslin2(input_data, input_metadata, 
-#                                                         output='temp_directory', 
-#                                                         min_prevalence=0.05, 
-#                                                         #min_variance,
-#                                                         #normalization='NONE', 
-#                                                         normalization='CLR',
-#                                                         #normalization= 'TSS',
-#                                                         #transform='LOG',
-#                                                         transform = "NONE",
-#                                                         correction = "BH",
-#                                                         analysis_method='LM',
-#                                                         max_significance=0.05,
-#                                                         fixed_effects = c('Group'),
-#                                                         #standardize=FALSE,
-#                                                         standardize=TRUE,
-#                                                         #standardize=FALSE,
-#                                                         plot_heatmap=TRUE, 
-#                                                         plot_scatter=TRUE
-# )))
 
 capt<- capture.output(fits <- suppressWarnings(Maaslin2(input_data, input_metadata, 
                                                         output='temp_directory', 

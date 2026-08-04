@@ -45,18 +45,52 @@ print("You are using the following parameters:")
 print(opts)
 
 
-# Install related packages
-if (FALSE){
-  source("https://bioconductor.org/biocLite.R")
-  biocLite(c("ggsankey","ggplot2","ggalluvial"))
+# CRAN镜像
+site <- "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+
+# CRAN包
+cran_pkgs <- c(
+  "ggplot2",
+  "ggalluvial",
+  "remotes"
+)
+
+# 检查并安装CRAN包
+for(pkg in cran_pkgs){
+  
+  if(!requireNamespace(pkg, quietly = TRUE)){
+    
+    install.packages(pkg, repos = site)
+    
+  }
+  
 }
-# load related packages
-suppressWarnings(suppressMessages(library("ggsankey")))
-suppressWarnings(suppressMessages(library("ggplot2")))
-suppressWarnings(suppressMessages(library("ggalluvial")))
+
+# ggsankey（GitHub安装）
+if(!requireNamespace("ggsankey", quietly = TRUE)){
+  
+  remotes::install_github("davidsjoberg/ggsankey")
+  
+}
+
+# 加载包
+pkg_list <- c(
+  "ggsankey",
+  "ggplot2",
+  "ggalluvial"
+)
+
+for(pkg in pkg_list){
+  
+  suppressWarnings(
+    suppressMessages(
+      library(pkg, character.only = TRUE)
+    )
+  )
+  
+}
 
 
-#df01 <- read.table(file = "data/data_sankey7.txt", sep = "\t", header = T, check.names = FALSE)
 df01 <- read.table(file = opts$input, sep = "\t", header = T, check.names = FALSE)
 data <- df01
 df <- to_lodes_form(data[,1:ncol(data)],

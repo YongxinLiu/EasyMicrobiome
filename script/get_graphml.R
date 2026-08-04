@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2024 De-feng Bai <baidefeng@caas.cn>
+# Copyright 2026 Defeng Bai <baidefeng@caas.cn>
 
 # If used this script, please cited:
 # Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, et al. 2021. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein & Cell 12: 315-330. https://doi.org/10.1007/s13238-020-00724-8
@@ -32,9 +32,9 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-R", "--Correlation"), type="character", default="metaphlan4/sxtr_cov_mat_Centenarians.tsv",
+    make_option(c("-R", "--Correlation"), type="character", default="metaphlan4/R_Centenarians.txt",
                 help="Metaphlan4 species table"),
-    make_option(c("-P", "--Pvalue"), type="character", default="metaphlan4/sxtr_pvals_Centenarians.two_sided.tsv",
+    make_option(c("-P", "--Pvalue"), type="character", default="metaphlan4/P_Centenarians.txt",
                 help="Unfiltered OTU table [default %default]"),
     make_option("--Group", type="character"),
     make_option(c("-r", "--output"), type="character", default="metaphlan4/",
@@ -45,8 +45,6 @@ if (TRUE){
 print("You are using the following parameters:")
 print(opts)
 
-
-# Install related packages
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 packages <- c(
@@ -154,96 +152,12 @@ patients.clusters <- cluster_louvain(graph)
 V(graph)$Cluster <- patients.clusters$membership
 
 # save data
-# write_graph(graph, file = paste(opts$output, "Centenarians_01.graphml", sep=""), format="graphml")
-
-# 可视化方式1：基于Gephi软件进行可视化 https://gephi.org/
-# Visualized in Gephi software
-# The same procedure for healthy group
-
-# healthy组和patients组相同
-# healthy.clusters <- cluster_louvain(healthy.igraph.s)
-# V(healthy.igraph.s)$Cluster <- healthy.clusters$membership
-
-# 可视化方式2：利用igraph进行可视化
-g <- graph
-# 准备网络图布局数据
-# Preparing network diagram layout data。
-layout1 <- layout_in_circle(g) 
-layout5 <- layout_with_graphopt(g)
-
-# 设置绘图颜色
-# Setting the drawing color
-#color <- c("#879b56","#ce77ad","#5ea6c2")
-
-color = c("#d2da93","#5196d5","#00ceff","#ff630d","#35978b",
-          "#e5acd7","#77aecd","#ec8181","#dfc6a5","#e50719",
-          "#d27e43","#8a4984","#fe5094","#8d342e","#f94e54",
-          "#ffad00","#36999d","#00fc8d","#b64aa0","#9b82e1",
-          "#fec44f","#e0f3db","#fa9fb5","#c994c7","#807dba",
-          "#ec7014","#a6bddb","#ef3b2c","#fe9929","#a1d99b")
-
-names(color) <- unique(V(g)$Cluster) 
-V(g)$point.col <- color[match(V(g)$Cluster,names(color))] 
-
-# 边颜色按照相关性正负设置
-# The edge color is set according to the positive or negative correlation
-E(g)$color <- ifelse(E(g)$linecolor == "positive","#ff878c","#5ea6c2")
-
-#pdf(file=paste(opts$output, "network_group_Centenarians_cluster.pdf", sep=""), width=10, height=12)
-pdf(
-  file = paste0(
+#write_graph(graph, file = paste(opts$output, "Centenarians_01.graphml", sep=""), format="graphml")
+write_graph(
+  graph,
+  file = file.path(
     opts$output,
-    "/network_group_",
-    opts$Group,
-    "_cluster.pdf"
+    paste0(opts$Group, "_01.graphml")
   ),
-  width = 10,
-  height = 12
+  format = "graphml"
 )
-par(mar=c(5,2,1,2))
-plot.igraph(g, layout=layout5,
-            vertex.color=V(g)$point.col,
-            vertex.border=V(g)$point.col,
-            vertex.size=6,
-            vertex.frame.color="white",
-            vertex.label=g$name,
-            vertex.label.cex=0.8,
-            vertex.label.dist=0, 
-            vertex.label.degree = pi/2,
-            vertex.label.col="black",
-            edge.arrow.size=0.5,
-            edge.width=abs(E(g)$r)*15,
-            edge.curved = FALSE
-)
-
-# 设置图例
-legend(
-  title = "Cluster",
-  list(x = min(layout1[,1])-0.05,
-       y = min(layout1[,2])-0.05), 
-  legend = c(unique(V(g)$Cluster)),
-  fill = color,
-  #pch=1
-)
-
-legend(
-  title = "|r-value|",
-  list(x = min(layout1[,1])+0.6,
-       y = min(layout1[,2])-0.05),
-  legend = c(0.2,0.4,0.6,0.8,1.0),
-  col = "black",
-  lty=1,
-  lwd=c(0.2,0.4,0.6,0.8,1.0)*4,
-)
-
-legend(
-  title = "Correlation (±)",
-  list(x = min(layout1[,1])+1.0,
-       y = min(layout1[,2])-0.05),
-  legend = c("positive","negative"),
-  col = c("#ff878c",rgb(0,147,0,maxColorValue = 255)),
-  lty=1,
-  lwd=1
-)
-dev.off()
-

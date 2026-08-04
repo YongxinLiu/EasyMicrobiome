@@ -8,115 +8,291 @@
 # 手动运行脚本，使用 Ctrl+Shift+H 或 Session 需要设置工作目录
 # Set Work Directory - Choose Directory / To Source File Location
 
-# Clean enviroment object
-rm(list=ls()) 
-
 # 1.1 简介 Introduction #----
+ 
+# 程序功能：处理得到的物种组成数据作为SparCC计算的输入
+# Functions: Processing Metaphlan4 species abundance table
+# as SparCC input files for each group
 
-# 程序功能：处理Metaphlan4得到的物种组成数据作为SparCC计算的输入
-# Functions: Processing of species composition data obtained from Metaphlan4 as input for SparCC calculations
+# Clean environment
+rm(list = ls())
 
+options(warn = -1)
 
-options(warn = -1) # Turn off warning
+# =========================================================
+# Parameters
+# =========================================================
 
-# 1.2 参数 Parameters #----
-# 设置清华源加速下载
-# (Optional) Set up Tsinghua Mirror to speed up download
-site="https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-# 判断命令行解析包是否安装，没安装则安装，然后加载
-# Determine whether the command line parsing package is installed, install it if it is not installed, then load
-if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE, quietly = TRUE, warn.conflicts = FALSE)))) {
-  install.packages("optparse", repos=site)
-  require("optparse",character.only=T)
-}
-# 解析参数-h显示帮助信息
-if (TRUE){
-  option_list = list(
-    make_option(c("-i", "--input"), type="character", default="result12/metaphlan4/Species.txt",
-                help="Metaphlan4 species table"),
-    make_option(c("-g", "--group"), type="character", default="result12/metadata.txt",
-                help="Unfiltered OTU table [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="result12/metaphlan4/",
-                help="Output file for SparCC analysis in different groups  [default %default]") 
+site = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+
+# Install optparse if needed
+if (!suppressWarnings(
+  suppressMessages(
+    require("optparse",
+            character.only = TRUE,
+            quietly = TRUE,
+            warn.conflicts = FALSE)
   )
-  opts = parse_args(OptionParser(option_list=option_list))
+)) {
+  
+  install.packages("optparse", repos = site)
+  
+  require(optparse)
 }
-print("You are using the following parameters:")
+
+# Parse arguments
+option_list = list(
+  
+  make_option(
+    c("-i", "--input"),
+    type = "character",
+    default = "result12/metaphlan4/Species.txt",
+    help = "Metaphlan4 species table"
+  ),
+  
+  make_option(
+    c("-g", "--group"),
+    type = "character",
+    default = "result12/metadata.txt",
+    help = "Metadata file"
+  ),
+  
+  make_option(
+    c("-o", "--output"),
+    type = "character",
+    default = "result12/metaphlan4/",
+    help = "Output directory"
+  ),
+  
+  make_option(
+    c("--groups"),
+    type = "character",
+    default = NULL,
+    help = "Groups to extract, separated by comma. Example: Cancer,Normal"
+  )
+)
+
+opts = parse_args(OptionParser(option_list = option_list))
+
+cat("=====================================\n")
+cat("Parameters:\n")
 print(opts)
+cat("=====================================\n")
 
+# =========================================================
+# Load packages
+# =========================================================
 
-# Install related packages
-if (FALSE){
-  source("https://bioconductor.org/biocLite.R")
-  biocLite(c("reshape2","ggplot2","ggprism","dplyr","plyr",
-             "igraph")) # ,"vegan"
+packages <- c(
+  "reshape2",
+  "ggplot2",
+  "ggprism",
+  "dplyr",
+  "plyr",
+  "igraph"
+)
+
+for (p in packages) {
+  
+  suppressWarnings(
+    suppressMessages(
+      library(p,
+              character.only = TRUE)
+    )
+  )
 }
-# load related packages
-suppressWarnings(suppressMessages(library("reshape2")))
-suppressWarnings(suppressMessages(library("ggplot2")))
-suppressWarnings(suppressMessages(library("ggprism")))
-# suppressWarnings(suppressMessages(library("vegan")))
-suppressWarnings(suppressMessages(library("dplyr")))
-suppressWarnings(suppressMessages(library("plyr")))
-suppressWarnings(suppressMessages(library("igraph")))
 
+# =========================================================
+# Create output directory
+# =========================================================
 
-# metadata 
-#design <- read.table(file = "result12/metaphlan4/metadata.txt", sep = "\t", header = T, row.names=1)
-design <- read.table(opts$group, sep = "\t", header = T, row.names=1)
-#df3 <- read.table(file = "result12/metaphlan4/Species.txt", sep = "\t", header = T, check.names = FALSE)
-df3 <- read.table(opts$input, sep = "\t", header = T, check.names = FALSE)
+if (!dir.exists(opts$output)) {
+  
+  dir.create(opts$output,
+             recursive = TRUE)
+}
+
+# =========================================================
+# Read metadata
+# =========================================================
+
+design <- read.table(
+  opts$group,
+  sep = "\t",
+  header = TRUE,
+  row.names = 1,
+  check.names = FALSE
+)
+
+# Check Group column
+if (!"Group" %in% colnames(design)) {
+  
+  stop("ERROR: metadata file must contain a column named 'Group'")
+}
+
+# =========================================================
+# Read species abundance table
+# =========================================================
+
+df3 <- read.table(
+  opts$input,
+  sep = "\t",
+  header = TRUE,
+  check.names = FALSE
+)
+
 df_species <- df3
 
-# sum of Species
-data<-aggregate(.~ Taxonomy,data=df_species,sum)
-rownames(data) = data$Taxonomy
-data = data[, -1]
+# =========================================================
+# Aggregate taxonomy
+# =========================================================
 
-#If species are too much, please select part of them according to relative abundace
-#species_selected <- read.table(file = "data/Species_selected.txt", sep = "\t", header = T, check.names = FALSE)
-#rownames(species_selected) <- species_selected$ID
-#data <- data[rownames(data)%in%rownames(species_selected), ]
+# 获取第一列列名
+feature_col <- colnames(df_species)[1]
 
-data3 = apply(data, 2, function(x)x/100)
-#sum(data3$H001F)
+cat("Feature column:", feature_col, "\n")
 
-# Check data
-dim(data3)
-data3 = data3 * 100000
-OTU.table.filtered.colnames <- colnames(data3)
-OTU.table.filtered.sparcc <- cbind(rownames(data3), data3)
-colnames(OTU.table.filtered.sparcc) <- c("OTU_id", OTU.table.filtered.colnames)
-OTU.table.filtered.sparcc2 <- t(OTU.table.filtered.sparcc)
-OTU.table.filtered.sparcc2 <- OTU.table.filtered.sparcc2[-1,]
-OTU.table.filtered.sparcc2 <- as.data.frame(OTU.table.filtered.sparcc2)
-#OTU.table.filtered.sparcc2$group <- rownames(OTU.table.filtered.sparcc2)
-#OTU.table.filtered.sparcc2$group = as.character(OTU.table.filtered.sparcc2$group)
-#OTU.table.filtered.sparcc2$group = gsub("[0-9]","", OTU.table.filtered.sparcc2$group)
-otutab <- as.data.frame(t(OTU.table.filtered.sparcc2))
+data <- aggregate(
+  df_species[, -1],
+  by = list(df_species[[feature_col]]),
+  FUN = sum
+)
 
-# Select by manual set group
-# NPC group
-if (TRUE){
-  sub_design = subset(design, Group %in% c("Cancer")) 
-  sub_design$Group  = factor(sub_design$Group, levels=c("Cancer"))
+colnames(data)[1] <- feature_col
+
+rownames(data) <- data[[feature_col]]
+
+data <- data[, -1]
+
+# =========================================================
+# Convert abundance
+# =========================================================
+
+data3 <- apply(data,
+               2,
+               function(x) x / 100)
+
+cat("Data dimension:\n")
+print(dim(data3))
+
+# SparCC recommended scaling
+# data3 <- data3 * 100000
+
+# =========================================================
+# Format OTU table
+# =========================================================
+
+# keep numeric matrix
+data3 <- as.data.frame(data3)
+
+# species as rownames
+rownames(data3) <- rownames(data)
+
+# samples as columns
+colnames(data3) <- colnames(data)
+
+# transpose:
+# rows = species
+# cols = samples
+otutab <- as.data.frame(data3)
+
+# ensure numeric
+otutab[] <- lapply(otutab, as.numeric)
+
+# check
+cat("OTU table dimension:\n")
+print(dim(otutab))
+
+cat("OTU table preview:\n")
+print(head(otutab[,1:min(5,ncol(otutab))]))
+
+
+# =========================================================
+# Determine groups
+# =========================================================
+
+if (is.null(opts$groups)) {
+  
+  group_list <- unique(design$Group)
+  
+} else {
+  
+  group_list <- unlist(
+    strsplit(opts$groups, ",")
+  )
 }
-idx = rownames(sub_design) %in% colnames(otutab)
-sub_design_Cancer = sub_design[idx,]
-sub_otutab_Cancer = otutab[,rownames(sub_design_Cancer)]
-sub_otutab_Cancer <- as.data.frame(sub_otutab_Cancer)
-#write.table(sub_otutab_npc, file = "results/Species_sparcc_npc_p01_11R_adjusted_1031.txt", row.names = T, sep = "\t", quote = T, col.names = T)
-write.table(sub_otutab_Cancer, file = paste(opts$output, "Cancer_sparcc.txt", sep=""), row.names = T, sep = "\t", quote = T, col.names = T)
 
-# Healthy group
-if (TRUE){
-  sub_design = subset(design, Group %in% c("Normal")) 
-  sub_design$Group  = factor(sub_design$Group, levels=c("Normal"))
+cat("Groups to process:\n")
+print(group_list)
+
+# =========================================================
+# Function for extracting group
+# =========================================================
+
+extract_group <- function(group_name,
+                          design,
+                          otutab,
+                          output_dir) {
+  
+  cat("\nProcessing group:", group_name, "\n")
+  
+  # subset metadata
+  sub_design <- subset(
+    design,
+    Group %in% c(group_name)
+  )
+  
+  sub_design$Group <- factor(
+    sub_design$Group,
+    levels = c(group_name)
+  )
+  
+  # sample intersection
+  idx <- rownames(sub_design) %in% colnames(otutab)
+  
+  sub_design <- sub_design[idx, ]
+  
+  # subset otu table
+  sub_otutab <- otutab[, rownames(sub_design)]
+  
+  sub_otutab <- as.data.frame(sub_otutab)
+  
+  # output file
+  outfile <- paste0(
+    output_dir,
+    "/",
+    group_name,
+    "_sparcc.txt"
+  )
+  
+  write.table(
+    sub_otutab,
+    file = outfile,
+    row.names = TRUE,
+    sep = "\t",
+    quote = FALSE,
+    col.names = TRUE
+  )
+  
+  cat("Output:", outfile, "\n")
+  cat("Samples:", ncol(sub_otutab), "\n")
+  cat("Species:", nrow(sub_otutab), "\n")
 }
-idx = rownames(sub_design) %in% colnames(otutab)
-sub_design_Normal = sub_design[idx,]
-sub_otutab_Normal = otutab[,rownames(sub_design_Normal)]
-sub_otutab_Normal = as.data.frame(sub_otutab_Normal)
-sub_otutab_Normal = as.data.frame(sub_otutab_Normal)
-#write.table(sub_otutab_healthy, file = "results/Species_sparcc_npc_h01_11R_adjusted_1031.txt", row.names = T, sep = "\t", quote = T, col.names = T)
-write.table(sub_otutab_Normal, file = paste(opts$output, "Normal_sparcc.txt", sep=""), row.names = T, sep = "\t", quote = T, col.names = T)
+
+# =========================================================
+# Run all groups
+# =========================================================
+
+for (g in group_list) {
+  
+  extract_group(
+    group_name = g,
+    design = design,
+    otutab = otutab,
+    output_dir = opts$output
+  )
+}
+
+cat("\nAll done!\n")
+
+

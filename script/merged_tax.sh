@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # 创建输出文件并添加表头
-echo -e "Name\tCompleteness\tContamination\tGenome_Size\tDomain\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies" > result/checkm2/parsed_taxonomy_filled.tsv
+echo -e "Name\tCompleteness\tContamination\tGenome_Size\tDomain\tPhylum\tClass\tOrder\tFamily\tGenus\tSpecies" > checkm2/parsed_taxonomy_filled.tsv
 
 # 处理数据并生成最终结果
 join -t $'\t' -1 1 -2 1 \
-    <(tail -n +2 result/checkm2/quality_report.tsv | cut -f1-3,9 | sort -k1,1) \
-    <(tail -n +2 temp/gtdb_classify/tax.bac120.summary.tsv | cut -f1-2 | sort -k1,1) | \
+    <(tail -n +2 checkm2/quality_report.tsv | cut -f1-3,9 | sort -k1,1) \
+    <(tail -n +2 ../temp/gtdb_classify/tax.bac120.summary.tsv | cut -f1-2 | sort -k1,1) | \
 awk -F '\t' -v OFS="\t" '
 {
     # 默认分类为 unclassified
@@ -31,11 +31,11 @@ awk -F '\t' -v OFS="\t" '
     }
     # 打印最终结果
     print $1, $2, $3, $4, domain, phylum, class, order, family, genus, species
-}' >> result/checkm2/parsed_taxonomy_filled.tsv
+}' >> checkm2/parsed_taxonomy_filled.tsv
 
 # 将空白字段替换为 "unclassified"
-awk -v OFS="\t" '{for(i=5;i<=11;i++) if($i=="") $i="unclassified"; print}' result/checkm2/parsed_taxonomy_filled.tsv > result/checkm2/taxonomy_merge.txt
+awk -v OFS="\t" '{for(i=5;i<=11;i++) if($i=="") $i="unclassified"; print}' checkm2/parsed_taxonomy_filled.tsv > checkm2/taxonomy_merge.txt
 
-rm result/checkm2/parsed_taxonomy_filled.tsv
+rm checkm2/parsed_taxonomy_filled.tsv
 # result/checkm2/taxonomy_merge.csv
 
