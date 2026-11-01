@@ -47,20 +47,89 @@ print(opts)
 
 
 # Install related packages
-if (FALSE){
-  source("https://bioconductor.org/biocLite.R")
-  biocLite(c("ggtreeExtra","ggtree","treeio","tidytree","ggstar","ggplot2",
-             "ggnewscale","TDbook"))
+# if (FALSE){
+#   source("https://bioconductor.org/biocLite.R")
+#   biocLite(c("ggtreeExtra","ggtree","treeio","tidytree","ggstar","ggplot2",
+#              "ggnewscale","TDbook"))
+# }
+# # load related packages
+# suppressWarnings(suppressMessages(library("ggtreeExtra")))
+# suppressWarnings(suppressMessages(library("ggtree")))
+# suppressWarnings(suppressMessages(library("treeio")))
+# suppressWarnings(suppressMessages(library("tidytree")))
+# suppressWarnings(suppressMessages(library("ggstar")))
+# suppressWarnings(suppressMessages(library("ggplot2")))
+# suppressWarnings(suppressMessages(library("ggnewscale")))
+# suppressWarnings(suppressMessages(library("TDbook")))
+
+
+# 设置CRAN镜像
+site <- "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+
+# CRAN包
+cran_pkgs <- c(
+  "ggplot2",
+  "ggstar",
+  "ggnewscale",
+  "BiocManager"
+)
+
+# Bioconductor包
+bioc_pkgs <- c(
+  "ggtreeExtra",
+  "ggtree",
+  "treeio",
+  "tidytree",
+  "TDbook"
+)
+
+#--------------------------------------------------
+# 安装CRAN包
+#--------------------------------------------------
+for(pkg in cran_pkgs){
+  
+  if(!requireNamespace(pkg, quietly = TRUE)){
+    
+    install.packages(
+      pkg,
+      repos = site
+    )
+    
+  }
+  
 }
-# load related packages
-suppressWarnings(suppressMessages(library("ggtreeExtra")))
-suppressWarnings(suppressMessages(library("ggtree")))
-suppressWarnings(suppressMessages(library("treeio")))
-suppressWarnings(suppressMessages(library("tidytree")))
-suppressWarnings(suppressMessages(library("ggstar")))
-suppressWarnings(suppressMessages(library("ggplot2")))
-suppressWarnings(suppressMessages(library("ggnewscale")))
-suppressWarnings(suppressMessages(library("TDbook")))
+
+#--------------------------------------------------
+# 安装Bioconductor包
+#--------------------------------------------------
+for(pkg in bioc_pkgs){
+  
+  if(!requireNamespace(pkg, quietly = TRUE)){
+    
+    BiocManager::install(
+      pkg,
+      ask = FALSE,
+      update = FALSE
+    )
+    
+  }
+  
+}
+
+#--------------------------------------------------
+# 加载所有包
+#--------------------------------------------------
+all_pkgs <- c(cran_pkgs, bioc_pkgs)
+
+for(pkg in all_pkgs){
+  
+  suppressWarnings(
+    suppressMessages(
+      library(pkg, character.only = TRUE)
+    )
+  )
+  
+}
 
 
 # Load tree data

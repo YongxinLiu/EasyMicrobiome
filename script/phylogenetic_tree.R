@@ -83,22 +83,33 @@ if (num_unique_phyla > length(color_palette)) {
 }
 data1$color <- color_mapping[data1$Phylum]
 data1 <- data1[order(data1$ID), ]
-data2 <- subset(data_anno, select = c(ID, MY1, MY2, MY3, FY1, FY2, FY3))
-data2$Prevalence<- rowMeans(data2[, c("MY1", "MY2", "MY3","FY1", "FY2", "FY3")])
+# data2 <- subset(data_anno, select = c(ID, MY1, MY2, MY3, FY1, FY2, FY3))
+# data2$Prevalence<- rowMeans(data2[, c("MY1", "MY2", "MY3","FY1", "FY2", "FY3")])
+# data2$Group <- "Young"
+
+data2 <- subset(data_anno, select = c(ID, Y1, Y2, Y3))
+data2$Prevalence<- rowMeans(data2[, c("Y1", "Y2", "Y3")])
 data2$Group <- "Young"
-data3 <- subset(data_anno, select = c(ID, ME1, ME2, ME3, FE1, FE2, FE3 ))
-data3$Prevalence<- rowMeans(data3[, c("ME1", "ME2", "ME3", "FE1","FE2","FE3")])
-data3$Group <- "Elderly"
-data4 <- subset(data_anno, select = c(ID, MC1, MC2, MC3, FC1, FC2, FC3))
-data4$Prevalence<- rowMeans(data4[, c("MC1", "MC2", "MC3", "FC1","FC2","FC3")])
+
+# data3 <- subset(data_anno, select = c(ID, ME1, ME2, ME3, FE1, FE2, FE3 ))
+# data3$Prevalence<- rowMeans(data3[, c("ME1", "ME2", "ME3", "FE1","FE2","FE3")])
+# data3$Group <- "Elderly"
+
+# data4 <- subset(data_anno, select = c(ID, MC1, MC2, MC3, FC1, FC2, FC3))
+# data4$Prevalence<- rowMeans(data4[, c("MC1", "MC2", "MC3", "FC1","FC2","FC3")])
+# data4$Group <- "Centenarian"
+
+data4 <- subset(data_anno, select = c(ID, C1, C2, C3))
+data4$Prevalence<- rowMeans(data4[, c("C1", "C2", "C3")])
 data4$Group <- "Centenarian"
+
 #如果数据相差太大，可以做Min-Max Normalization
 
 min_max_normalize <- function(x) {
   return((x - min(x)) / (max(x) - min(x)))
 }
 data2$Prevalence <- min_max_normalize(data2$Prevalence)
-data3$Prevalence <- min_max_normalize(data3$Prevalence)
+#data3$Prevalence <- min_max_normalize(data3$Prevalence)
 data4$Prevalence <- min_max_normalize(data4$Prevalence)
 # Prepare the tree
 data1$label <- data1$ID
@@ -133,22 +144,22 @@ p2<- ggtree(tree2,
     #values=c("red","black"),
     guide=guide_legend(keywidth=1, keyheight=1, order=2),
     name="Cooling")+
-  new_scale_fill() +
-  geom_fruit(
-    data=data3,#数据
-    geom = geom_col,#绘图类型
-    mapping = aes(y=ID, x= Prevalence, fill = Group),
-    offset = 0.01,
-    pwidth = 0.1,
-    width=0.5,
-    #show.legend = FALSE
-  )+
-  scale_fill_manual(
-    #values=c("#4285f4", "#34a853", "#fbbc05","#ea4335"),
-    values=c("#ffb900","#fc636b","#aeb6b8","#e53238","lightblue"),
-    #values=c("red","black"),
-    guide=guide_legend(keywidth=1, keyheight=1, order=2),
-    name="Mature")+
+  # new_scale_fill() +
+  # geom_fruit(
+  #   data=data3,#数据
+  #   geom = geom_col,#绘图类型
+  #   mapping = aes(y=ID, x= Prevalence, fill = Group),
+  #   offset = 0.01,
+  #   pwidth = 0.1,
+  #   width=0.5,
+  #   #show.legend = FALSE
+  # )+
+  # scale_fill_manual(
+  #   #values=c("#4285f4", "#34a853", "#fbbc05","#ea4335"),
+  #   values=c("#ffb900","#fc636b","#aeb6b8","#e53238","lightblue"),
+  #   #values=c("red","black"),
+  #   guide=guide_legend(keywidth=1, keyheight=1, order=2),
+  #   name="Mature")+
   new_scale_fill() +
   geom_fruit(
     data=data4,#数据
@@ -180,4 +191,6 @@ p2<- ggtree(tree2,
 pdf(file=paste(opts$output, "MAGs_phylogenetic_tree01.pdf", sep=""), height = 5.2, width = 11)
 p2
 dev.off()
+
+
 

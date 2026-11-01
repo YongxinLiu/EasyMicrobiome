@@ -4,9 +4,9 @@
 
 Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
-版本(Version)：EasyMicrobiome v1.24
+版本(Version)：EasyMicrobiome v1.25
 
-更新时间(Update)：2025/11/25
+更新时间(Update)：2026/8/4
 
 项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
 

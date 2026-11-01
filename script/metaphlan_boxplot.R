@@ -110,7 +110,10 @@ grp = taxonomy[, opts$taxonomy, drop=F]
 abu = taxonomy[,9:dim(taxonomy)[2]]
 merge = cbind(abu, grp)
 # group_by传变量，前面加".dots="
-mergeTax = merge %>% group_by(.dots=opts$taxonomy) %>% summarise_all(sum)
+# mergeTax = merge %>% group_by(.dots=opts$taxonomy) %>% summarise_all(sum)
+mergeTax = merge %>%
+  group_by(across(all_of(opts$taxonomy))) %>%
+  summarise(across(everything(), sum), .groups = "drop")
 # 合并后表格转换为数据框
 mergeTax = as.data.frame(mergeTax)
 # 按丰度排序
