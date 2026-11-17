@@ -84,13 +84,24 @@ if (TRUE){
                 help="Fixed effects [default %default]"),
     make_option(c("-c", "--correction"), type="character", default="BH",
                 help="Fixed effects [default %default]"),
-    make_option(c("-o", "--output"), type="character", default="result/metaphlan4/",
-                help="Output quantile value for filter feature table [default %default]")
+    # ===== 修改点 1：默认输出目录改为 metaphlan4/MaAsLin2_result =====
+    make_option(c("-o", "--output"), type="character", default="result/metaphlan4/MaAsLin2_result",
+                help="Output directory [default %default]")
   )
   opts = parse_args(OptionParser(option_list=option_list))
 }
 # print("You are using the following parameters:")
 # print(opts)
+
+
+# ===== 修改点 2：若输出目录不存在则自动创建，并统一加结尾斜杠 =====
+if (!dir.exists(opts$output)) {
+  dir.create(opts$output, recursive = TRUE)
+}
+# 统一在输出目录末尾补 "/"，避免文件名拼接出错
+if (!grepl("/$", opts$output)) {
+  opts$output <- paste0(opts$output, "/")
+}
 
 
 # 2. 依赖关系检查、安装和加载
@@ -201,8 +212,12 @@ sam_data = as.data.frame(sample_data(ps))
 common_columns = colnames(sam_data)[colnames(sam_data) %in% colnames(metadata)]
 input_metadata <- data.frame(sam_data[, common_columns])
 
+# ===== 修改点 3：Maaslin2 的临时输出目录改为输出目录下的子目录，避免污染工作目录 =====
+temp_dir <- paste0(opts$output, "temp_directory/")
+if (!dir.exists(temp_dir)) dir.create(temp_dir, recursive = TRUE)
+
 capt<- capture.output(fits <- suppressWarnings(Maaslin2(input_data, input_metadata, 
-                                                        output='temp_directory', 
+                                                        output=temp_dir, 
                                                         min_prevalence=opts$min_prevalence, 
                                                         #min_variance,
                                                         #normalization='NONE', 
@@ -318,6 +333,7 @@ for (var in seq_along(unique(fits$results$metadata))){
 }
 lm.s.npc = list(result.summary=res, Maaslin2.output=fits)
 
+# ===== 修改点 4：输出文件路径统一用 opts$output（已确保以 "/" 结尾） =====
 write.csv(lm.s.npc[["result.summary"]], paste0(opts$output, 'MaAsLin2_overall_difference.csv'))
 
 
@@ -333,5 +349,5 @@ plot.data$`NPC association` <- ifelse(plot.data[,2] < 0.05,
                                                     'enriched','opposite directions')),
                                       'not associated')
 
+# ===== 修改点 5：趋势表同样输出到 opts$output =====
 write.csv(plot.data, paste0(opts$output, 'MaAsLin2_enriched_depleted.csv'))
-
