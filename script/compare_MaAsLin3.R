@@ -1,427 +1,425 @@
-
 #!/usr/bin/env Rscript
 
 # ============================================================
 # Copyright 2024-2026 Defeng Bai <baidefeng@caas.cn>
 #
-# EasyMetagenome
-# MaAsLin3 differential abundance analysis
+# EasyMetagenome 风格的 MaAsLin3 差异分析脚本
 #
-# Bai, et al. 2025. EasyMetagenome: A User-Friendly and
-# Flexible Pipeline for Shotgun Metagenomic Analysis in
-# Microbiome Research. iMeta 4: e70001.
-# https://doi.org/10.1002/imt2.70001
+# 输入文件：
+#   1. Species.txt：第一列为 Taxonomy，后续列为样本丰度
+#   2. metadata.txt：包含 SampleID 和分组/协变量信息
 #
-# 功能：
-# 1. 使用 MaAsLin3 进行微生物组多变量关联分析
-# 2. 同时分析 abundance 和 prevalence
-# 3. 支持固定效应和随机效应
-# 4. 支持丰度、流行率、FDR 和 FC 统计
-# 5. 输出总体差异分析结果
-# 6. 输出 Group 分组的 enriched/depleted 结果
-# 7. 保留 MaAsLin3 模型错误信息
-# 8. 修复样本过滤后丰度矩阵与 Metadata 错位的问题
-# 9. 区分模型不可估计与模型统计量缺失
+# 本脚本会自动将 Species.txt 转换为 MaAsLin3 所需的
+# “样本为行、物种为列”的数据格式，并按 SampleID 匹配 metadata。
 #
-# 更新：
-# 2024/11/12：增加 MaAsLin2 方法
-# 2025/11/27：规范代码
-# 2026/05/22：更新软件包
-# 2026/11/17：升级为 MaAsLin3
+# 运行方式：
+#   Rscript MaAsLin3_EasyMetagenome.R --help
+#
+# 示例：
+#   Rscript MaAsLin3_EasyMetagenome.R \
+#     -i result/metaphlan4/Species.txt \
+#     -g result/metaphlan4/metadata.txt \
+#     -o result/metaphlan4/MaAsLin3_result \
+#     -f '~ Group' \
+#     --reference 'Group,Young'
 # ============================================================
 
-
-# ============================================================
-# 0. 清理环境
-# ============================================================
-
+# 清理当前 R 环境，避免已有对象影响本次分析
 rm(list = ls())
 
-options(warn = 1)
-
-set.seed(123)
-
+# 设置随机数种子，尽可能保证分析过程可重复
+set.seed(1)
 
 # ============================================================
-# 1. 加载命令行参数解析包
+# 1. 检查并加载依赖包
 # ============================================================
 
-if (!requireNamespace("optparse", quietly = TRUE)) {
-  
-  install.packages(
-    "optparse",
-    repos = "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
+# 本脚本只需要 optparse 和 maaslin3，不再安装 MaAsLin2 及其他无关依赖
+required_packages <- c("optparse", "maaslin3")
+
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_packages) > 0) {
+  stop(
+    paste0(
+      "缺少以下 R 包：", paste(missing_packages, collapse = ", "), "\n",
+      "请先安装依赖包。\n",
+      "安装 optparse：install.packages('optparse')\n",
+      "安装 MaAsLin3：if (!requireNamespace('BiocManager', quietly=TRUE)) ",
+      "install.packages('BiocManager'); ",
+      "BiocManager::install('biobakery/maaslin3')"
+    )
   )
-  
 }
 
-suppressPackageStartupMessages(
-  library(optparse)
-)
-
+suppressPackageStartupMessages(library(optparse))
+suppressPackageStartupMessages(library(maaslin3))
 
 # ============================================================
-# 2. 参数设置
+# 2. 设置命令行参数
 # ============================================================
+
+# 所有参数均可在脚本运行时通过命令行修改。
+# 路径参数支持相对路径和绝对路径；Windows 下建议使用正斜杠 /。
 
 option_list <- list(
-  
   make_option(
-    c("-i", "--input"),
-    type = "character",
+    c("-i", "--input"), type = "character",
     default = "result/metaphlan4/Species.txt",
-    help = "Species relative abundance table [default %default]"
+    help = "物种丰度表，第一列为 Taxonomy，后续列为样本 [default: %default]"
   ),
-  
   make_option(
-    c("-g", "--metadata"),
-    type = "character",
+    c("-g", "--metadata"), type = "character",
     default = "result/metadata.txt",
-    help = "Metadata file [default %default]"
+    help = "Metadata 文件，必须包含 SampleID 和模型所需变量 [default: %default]"
   ),
-  
   make_option(
-    c("-a", "--min_abundance"),
-    type = "numeric",
+    c("-o", "--output"), type = "character",
+    default = "result/metaphlan4/MaAsLin3_result",
+    help = "MaAsLin3 结果输出目录 [default: %default]"
+  ),
+  make_option(
+    c("--taxonomy_column"), type = "character",
+    default = "Taxonomy",
+    help = "丰度表中的物种名称列 [default: %default]"
+  ),
+  make_option(
+    c("--sample_id_column"), type = "character",
+    default = "SampleID",
+    help = "Metadata 中的样本 ID 列 [default: %default]"
+  ),
+  make_option(
+    c("-f", "--formula"), type = "character",
+    default = "~ Group",
+    help = "MaAsLin3 模型公式，例如 '~ Group' 或 '~ Group + age + sex' [default: %default]"
+  ),
+  make_option(
+    c("--reference"), type = "character",
+    default = "Group,Young",
+    help = "分类变量参考水平，格式为 '变量名,参考水平'；多个变量用分号分隔 [default: %default]"
+  ),
+  make_option(
+    c("-a", "--min_abundance"), type = "numeric",
     default = 0,
-    help = "Minimum abundance [default %default]"
+    help = "最小丰度过滤阈值 [default: %default]"
   ),
-  
   make_option(
-    c("-p", "--min_prevalence"),
-    type = "numeric",
+    c("-p", "--min_prevalence"), type = "numeric",
     default = 0.1,
-    help = "Minimum prevalence [default %default]"
+    help = "最小流行率过滤阈值，范围通常为 0-1 [default: %default]"
   ),
-  
   make_option(
-    c("-s", "--max_significance"),
-    type = "numeric",
+    c("--max_prevalence"), type = "numeric",
+    default = 1.01,
+    help = "最大流行率过滤阈值 [default: %default]"
+  ),
+  make_option(
+    c("--zero_threshold"), type = "numeric",
+    default = 0,
+    help = "小于或等于该值的丰度按 0 处理 [default: %default]"
+  ),
+  make_option(
+    c("--min_variance"), type = "numeric",
+    default = 0,
+    help = "最小方差过滤阈值 [default: %default]"
+  ),
+  make_option(
+    c("-s", "--max_significance"), type = "numeric",
     default = 0.05,
-    help = "Maximum significance threshold [default %default]"
+    help = "显著性阈值（FDR/q-value）[default: %default]"
   ),
-  
   make_option(
-    c("-n", "--normalization"),
-    type = "character",
+    c("-n", "--normalization"), type = "character",
     default = "TSS",
-    help = "Normalization: TSS, CLR, NONE [default %default]"
+    help = "标准化方法：TSS、CLR、CSS、NONE、TMM [default: %default]"
   ),
-  
   make_option(
-    c("-t", "--transform"),
-    type = "character",
+    c("-t", "--transform"), type = "character",
     default = "LOG",
-    help = "Transformation: LOG, PLOG, NONE [default %default]"
+    help = "数据转换方法：LOG、LOGIT、AST、NONE [default: %default]"
   ),
-  
   make_option(
-    c("-m", "--analysis_method"),
-    type = "character",
-    default = "LM",
-    help = "Legacy MaAsLin2 parameter; retained for compatibility, ignored by MaAsLin3"
-  ),
-  
-  make_option(
-    c("-r", "--random_effects"),
-    type = "character",
-    default = "none",
-    help = "Random effects, comma-separated [default %default]"
-  ),
-  
-  make_option(
-    c("-f", "--fixed_effects"),
-    type = "character",
-    default = "Group",
-    help = "Fixed effects, comma-separated [default %default]"
-  ),
-  
-  make_option(
-    c("-c", "--correction"),
-    type = "character",
+    c("-c", "--correction"), type = "character",
     default = "BH",
-    help = "Multiple testing correction [default %default]"
+    help = "多重检验校正方法，例如 BH、holm、bonferroni [default: %default]"
   ),
-  
   make_option(
-    c("-b", "--reference"),
-    type = "character",
-    default = "",
-    help = "Reference levels, e.g. Group,Control;Sex,F [default %default]"
+    c("--median_comparison_abundance"), type = "logical",
+    default = TRUE,
+    help = "abundance 模型是否进行中位数比较 TRUE/FALSE [default: %default]"
   ),
-  
   make_option(
-    c("-o", "--output"),
-    type = "character",
-    default = "result/metaphlan4/",
-    help = "Output directory [default %default]"
+    c("--median_comparison_prevalence"), type = "logical",
+    default = FALSE,
+    help = "prevalence 模型是否进行中位数比较 TRUE/FALSE [default: %default]"
+  ),
+  make_option(
+    c("--standardize"), type = "logical",
+    default = TRUE,
+    help = "是否对连续协变量标准化 TRUE/FALSE [default: %default]"
+  ),
+  make_option(
+    c("--augment"), type = "logical",
+    default = TRUE,
+    help = "是否对 prevalence 模型使用 augment TRUE/FALSE [default: %default]"
+  ),
+  make_option(
+    c("--save_models"), type = "logical",
+    default = TRUE,
+    help = "是否保存模型对象 TRUE/FALSE [default: %default]"
+  ),
+  make_option(
+    c("--warn_prevalence"), type = "logical",
+    default = TRUE,
+    help = "是否检查 prevalence 关联可能受丰度关联影响 TRUE/FALSE [default: %default]"
+  ),
+  make_option(
+    c("--max_pngs"), type = "integer",
+    default = 100,
+    help = "最多输出多少张关联图 [default: %default]"
   )
-  
 )
 
-opts <- parse_args(
-  OptionParser(option_list = option_list)
+# 解析用户输入的命令行参数
+opt <- parse_args(OptionParser(option_list = option_list))
+
+# ============================================================
+# 3. 打印本次分析参数并检查输入文件
+# ============================================================
+
+cat("\n============================================================\n")
+cat("MaAsLin3 差异分析参数\n")
+cat("============================================================\n")
+cat("丰度表：", opt$input, "\n")
+cat("Metadata：", opt$metadata, "\n")
+cat("输出目录：", opt$output, "\n")
+cat("模型公式：", opt$formula, "\n")
+cat("参考水平：", opt$reference, "\n")
+cat("标准化方法：", opt$normalization, "\n")
+cat("转换方法：", opt$transform, "\n")
+cat("最小丰度：", opt$min_abundance, "\n")
+cat("最小流行率：", opt$min_prevalence, "\n")
+cat("显著性阈值：", opt$max_significance, "\n")
+cat("============================================================\n\n")
+
+if (!file.exists(opt$input)) {
+  stop("找不到丰度表文件：", opt$input)
+}
+
+if (!file.exists(opt$metadata)) {
+  stop("找不到 Metadata 文件：", opt$metadata)
+}
+
+# 创建输出目录；若目录已经存在则继续使用
+if (!dir.exists(opt$output)) {
+  dir.create(opt$output, recursive = TRUE, showWarnings = FALSE)
+}
+
+# ============================================================
+# 4. 读取物种丰度表
+# ============================================================
+
+# Species.txt 的预期格式：
+# Taxonomy  C1  C2  C3  Y1  Y2  Y3
+# species1  1.2 0   3.4 0   0   0.5
+#
+# 这里不将样本列名交给 R 自动修改，避免样本 ID 发生变化。
+
+taxa_table <- read.delim(
+  opt$input,
+  header = TRUE,
+  sep = "\t",
+  check.names = FALSE,
+  stringsAsFactors = FALSE,
+  #quote = "\""
+  #comment.char = ""
+  quote = '"',
+  comment.char = ""
 )
 
-
-# ============================================================
-# 3. 参数检查
-# ============================================================
-
-if (!file.exists(opts$input)) {
-  stop("输入丰度文件不存在：", opts$input)
-}
-
-if (!file.exists(opts$metadata)) {
-  stop("Metadata 文件不存在：", opts$metadata)
-}
-
-if (opts$min_prevalence < 0 ||
-    opts$min_prevalence > 1) {
-  stop("min_prevalence 必须在 0-1 之间")
-}
-
-if (opts$min_abundance < 0) {
-  stop("min_abundance 不能小于 0")
-}
-
-if (opts$max_significance <= 0 ||
-    opts$max_significance > 1) {
-  stop("max_significance 必须在 0-1 之间")
-}
-
-normalization <- toupper(opts$normalization)
-
-transform_method <- toupper(opts$transform)
-
-if (!normalization %in% c("TSS", "CLR", "NONE")) {
-  
+if (!(opt$taxonomy_column %in% colnames(taxa_table))) {
   stop(
-    "MaAsLin3 normalization 仅支持 TSS、CLR、NONE；",
-    "不支持 MaAsLin2 的 CSS 或 TMM"
+    "丰度表中找不到物种名称列：", opt$taxonomy_column,
+    "。当前列名为：", paste(colnames(taxa_table), collapse = ", ")
   )
-  
 }
 
-if (!transform_method %in% c("LOG", "PLOG", "NONE")) {
-  
+# 提取物种名称，并检查空值和重复值
+feature_names <- as.character(taxa_table[[opt$taxonomy_column]])
+
+if (anyNA(feature_names) || any(feature_names == "")) {
+  stop("丰度表的物种名称列存在 NA 或空字符串，请先检查输入文件。")
+}
+
+if (anyDuplicated(feature_names)) {
+  duplicated_features <- unique(feature_names[duplicated(feature_names)])
   stop(
-    "MaAsLin3 transform 仅支持 LOG、PLOG、NONE；",
-    "不支持 MaAsLin2 的 LOGIT 或 AST"
+    "丰度表存在重复物种名称，请先合并或去重：",
+    paste(duplicated_features, collapse = ", ")
   )
-  
 }
 
-cat(
-  "MaAsLin3 使用内置线性模型和逻辑回归模型。\n",
-  "原 analysis_method 参数：",
-  opts$analysis_method,
-  "，不再参与模型设置。\n"
-)
+# 删除 Taxonomy 列，剩余列全部作为样本丰度
+abundance_df <- taxa_table[
+  , colnames(taxa_table) != opt$taxonomy_column,
+  drop = FALSE
+]
 
-
-# ============================================================
-# 4. 安装和加载 MaAsLin3
-# ============================================================
-
-cran_repo <- "https://mirrors.tuna.tsinghua.edu.cn/CRAN"
-
-# ------------------------------------------------------------
-# 4.1 安装 remotes
-# ------------------------------------------------------------
-
-if (!requireNamespace("remotes", quietly = TRUE)) {
-  
-  install.packages(
-    "remotes",
-    repos = cran_repo
-  )
-  
+if (ncol(abundance_df) == 0) {
+  stop("丰度表中没有检测到样本丰度列。")
 }
 
-# ------------------------------------------------------------
-# 4.2 从 GitHub 安装 MaAsLin3
-# ------------------------------------------------------------
+# 将每个样本丰度列转换为 numeric，防止字符型数据进入模型
+abundance_df[] <- lapply(
+  abundance_df,
+  function(x) suppressWarnings(as.numeric(as.character(x)))
+)
 
-if (!requireNamespace("maaslin3", quietly = TRUE)) {
-  
-  cat("正在从 GitHub 安装 MaAsLin3，请稍候...\n")
-  
-  remotes::install_github(
-    "biobakery/maaslin3",
-    dependencies = TRUE,
-    upgrade = "never"
-  )
-  
+abundance_matrix <- as.matrix(abundance_df)
+
+if (anyNA(abundance_matrix)) {
+  stop("丰度表中存在无法转换为数值的内容或 NA，请检查 Species.txt。")
 }
 
-# ------------------------------------------------------------
-# 4.3 检查安装结果
-# ------------------------------------------------------------
-
-if (!requireNamespace("maaslin3", quietly = TRUE)) {
-  
-  stop(
-    "MaAsLin3 安装失败，请检查 GitHub 网络连接、",
-    "R 版本及依赖包环境"
-  )
-  
+if (any(!is.finite(abundance_matrix))) {
+  stop("丰度表中存在 Inf 或 -Inf，请检查 Species.txt。")
 }
 
-# ------------------------------------------------------------
-# 4.4 加载 MaAsLin3
-# ------------------------------------------------------------
+if (any(abundance_matrix < 0)) {
+  stop("丰度表中存在负数，MaAsLin3 不接受负丰度。")
+}
 
-suppressPackageStartupMessages(
-  library(maaslin3)
-)
+# 设置物种名称为矩阵行名
+rownames(abundance_matrix) <- feature_names
 
-cat(
-  "MaAsLin3 version: ",
-  as.character(packageVersion("maaslin3")),
-  "\n"
-)
-
-cat("MaAsLin3 加载成功！\n")
-
+cat("丰度表读取成功：\n")
+cat("  物种数量：", nrow(abundance_matrix), "\n")
+cat("  样本数量：", ncol(abundance_matrix), "\n\n")
 
 # ============================================================
-# 5. 创建输出目录
+# 5. 读取 Metadata
 # ============================================================
-
-output_dir <- opts$output
-
-dir.create(
-  output_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
-
-# MaAsLin3 独立输出目录
-maaslin3_dir <- file.path(
-  output_dir,
-  "MaAsLin3_output"
-)
-
-dir.create(
-  maaslin3_dir,
-  recursive = TRUE,
-  showWarnings = FALSE
-)
-
-
-# ============================================================
-# 6. 读取 Metadata
-# ============================================================
-
-cat("\n========== 读取 Metadata ==========\n")
 
 metadata <- read.delim(
-  opts$metadata,
+  opt$metadata,
   header = TRUE,
   sep = "\t",
+  check.names = FALSE,
   stringsAsFactors = FALSE,
-  check.names = FALSE
+  #quote = "\""
+  #comment.char = ""
+  quote = '"',
+  comment.char = ""
 )
 
-if (!"SampleID" %in% colnames(metadata)) {
-  stop("Metadata 中缺少 SampleID 列")
-}
-
-if (!"Group" %in% colnames(metadata)) {
-  stop("Metadata 中缺少 Group 列")
-}
-
-metadata$SampleID <- as.character(
-  metadata$SampleID
-)
-
-if (anyDuplicated(metadata$SampleID)) {
-  stop("Metadata 中存在重复 SampleID")
-}
-
-rownames(metadata) <- metadata$SampleID
-
-# SampleID 仅用于匹配，不作为模型协变量
-metadata$SampleID <- NULL
-
-# 将字符型 metadata 转换为分类变量
-# 数值型变量保留为连续变量
-for (col in colnames(metadata)) {
-  
-  if (is.character(metadata[[col]])) {
-    
-    metadata[[col]] <- factor(
-      metadata[[col]],
-      levels = unique(
-        metadata[[col]][!is.na(metadata[[col]])]
-      )
-    )
-    
-  }
-  
-}
-
-# Group 必须作为分类变量
-metadata$Group <- factor(
-  as.character(metadata$Group),
-  levels = unique(
-    as.character(
-      metadata$Group[!is.na(metadata$Group)]
-    )
+if (!(opt$sample_id_column %in% colnames(metadata))) {
+  stop(
+    "Metadata 中找不到样本 ID 列：", opt$sample_id_column,
+    "。当前列名为：", paste(colnames(metadata), collapse = ", ")
   )
-)
-
-if (nlevels(metadata$Group) < 2) {
-  stop("Group 至少需要包含两个有效分组")
 }
 
-cat("Metadata 样本数：", nrow(metadata), "\n")
+sample_ids <- as.character(metadata[[opt$sample_id_column]])
+original_metadata_sample_ids <- sample_ids
 
-cat(
-  "Group 分组：",
-  paste(levels(metadata$Group), collapse = " / "),
-  "\n"
-)
+if (anyNA(sample_ids) || any(sample_ids == "")) {
+  stop("Metadata 的样本 ID 列存在 NA 或空字符串。")
+}
 
+if (anyDuplicated(sample_ids)) {
+  duplicated_samples <- unique(sample_ids[duplicated(sample_ids)])
+  stop(
+    "Metadata 中存在重复 SampleID：",
+    paste(duplicated_samples, collapse = ", ")
+  )
+}
+
+rownames(metadata) <- sample_ids
+metadata[[opt$sample_id_column]] <- NULL
+
+# 将字符型 metadata 转换为 factor，便于 MaAsLin3 识别分类变量。
+# 数值型列（如 age、reads）保持 numeric，不进行转换。
+for (column_name in colnames(metadata)) {
+  if (is.character(metadata[[column_name]])) {
+    metadata[[column_name]] <- factor(metadata[[column_name]])
+  }
+}
 
 # ============================================================
-# 7. 读取物种相对丰度表
+# 6. 根据 --reference 设置分类变量参考水平
 # ============================================================
 
-cat("\n========== 读取物种丰度表 ==========\n")
+# 参考水平参数格式示例：
+#   --reference 'Group,Young'
+# 多个变量示例：
+#   --reference 'Group,Young;Sex,Female'
+#
+# 当使用 formula 时，MaAsLin3 会将分类变量的第一个 factor level
+# 作为参考水平。因此这里直接调整 metadata 中 factor 的 levels 顺序。
 
-ra <- read.delim(
-  opts$input,
-  header = TRUE,
-  sep = "\t",
-  stringsAsFactors = FALSE,
-  check.names = FALSE
-)
+if (!is.null(opt$reference) && nzchar(trimws(opt$reference))) {
+  reference_items <- strsplit(opt$reference, ";", fixed = TRUE)[[1]]
 
-if (!"Taxonomy" %in% colnames(ra)) {
-  stop("丰度表中缺少 Taxonomy 列")
+  for (item in reference_items) {
+    item <- trimws(item)
+    pair <- strsplit(item, ",", fixed = TRUE)[[1]]
+
+    if (length(pair) != 2) {
+      stop(
+        "--reference 参数格式错误：", item,
+        "。正确格式示例：Group,Young；多个变量用分号分隔。"
+      )
+    }
+
+    variable_name <- trimws(pair[1])
+    reference_level <- trimws(pair[2])
+
+    if (!(variable_name %in% colnames(metadata))) {
+      stop("参考变量不存在于 Metadata 中：", variable_name)
+    }
+
+    # 参考变量转为 factor，并将用户指定水平放在第一个位置
+    current_values <- as.character(metadata[[variable_name]])
+    current_levels <- unique(current_values[!is.na(current_values)])
+
+    if (!(reference_level %in% current_levels)) {
+      stop(
+        "指定的参考水平不存在：", variable_name, " = ", reference_level,
+        "。该变量现有水平为：", paste(current_levels, collapse = ", ")
+      )
+    }
+
+    new_levels <- c(reference_level, setdiff(current_levels, reference_level))
+    metadata[[variable_name]] <- factor(current_values, levels = new_levels)
+  }
 }
 
-if (anyDuplicated(ra$Taxonomy)) {
-  stop("Taxonomy 中存在重复物种名称")
-}
+# ============================================================
+# 7. 匹配丰度表和 Metadata 样本
+# ============================================================
 
-# 检查共同样本
+# 仅保留两个文件中都存在的样本
+original_abundance_sample_ids <- colnames(abundance_matrix)
+
 common_samples <- intersect(
-  rownames(metadata),
-  colnames(ra)
+  original_abundance_sample_ids,
+  rownames(metadata)
 )
 
-if (length(common_samples) < 3) {
-  stop("丰度表与 Metadata 的共同样本数不足")
+if (length(common_samples) == 0) {
+  stop("丰度表和 Metadata 没有匹配的样本，请检查样本 ID 是否一致。")
 }
 
-cat("共同样本数：", length(common_samples), "\n")
+# 按照丰度表原始样本顺序排列，保证矩阵与 metadata 完全对应
+common_samples <- colnames(abundance_matrix)[
+  colnames(abundance_matrix) %in% common_samples
+]
 
-# 按照 metadata 的顺序排列样本
-common_samples <- rownames(metadata)[
-  rownames(metadata) %in% common_samples
+abundance_matrix <- abundance_matrix[
+  , common_samples,
+  drop = FALSE
 ]
 
 metadata <- metadata[
@@ -430,1331 +428,673 @@ metadata <- metadata[
   drop = FALSE
 ]
 
-# 提取丰度矩阵
-abundance_matrix <- as.matrix(
-  ra[, common_samples, drop = FALSE]
-)
-
-# 转换为数值型
-suppressWarnings(
-  storage.mode(abundance_matrix) <- "numeric"
-)
-
-if (anyNA(abundance_matrix)) {
-  stop("丰度表中存在 NA 或非数值数据，请检查输入文件")
+if (!identical(colnames(abundance_matrix), rownames(metadata))) {
+  stop("样本匹配后丰度表与 Metadata 的样本顺序仍不一致。")
 }
 
-if (any(!is.finite(abundance_matrix))) {
-  stop("丰度表中存在 Inf 或 NaN")
-}
-
-if (any(abundance_matrix < 0)) {
-  stop("丰度表中存在负数")
-}
-
-rownames(abundance_matrix) <- as.character(
-  ra$Taxonomy
-)
-
-if (nrow(abundance_matrix) == 0 ||
-    ncol(abundance_matrix) == 0) {
-  stop("丰度矩阵为空")
-}
-
-# 转换为样本 x 物种格式
-input_data_original <- as.data.frame(
+# MaAsLin3 要求样本为行、特征为列，因此在这里转置
+input_data <- as.data.frame(
   t(abundance_matrix),
   check.names = FALSE
 )
 
+input_metadata <- metadata
+
+if (!identical(rownames(input_data), rownames(input_metadata))) {
+  stop("转置后丰度表与 Metadata 的样本顺序不一致。")
+}
+
+cat("样本匹配完成：\n")
+cat("  匹配样本数：", nrow(input_data), "\n")
+cat("  未匹配丰度表样本数：",
+    length(setdiff(original_abundance_sample_ids, common_samples)), "\n")
+cat("  未匹配 Metadata 样本数：",
+    length(setdiff(original_metadata_sample_ids, common_samples)), "\n\n")
+
 # ============================================================
-# 8. 处理物种名称
+# 8. 检查模型公式和变量
 # ============================================================
 
-# MaAsLin3 建模时使用合法且唯一的列名
-# 保存原始物种名称用于结果还原
-
-original_features <- colnames(input_data_original)
-
-model_features <- make.names(
-  original_features,
-  unique = TRUE
+model_formula <- tryCatch(
+  as.formula(opt$formula),
+  error = function(e) stop("模型公式无法解析：", conditionMessage(e))
 )
 
+# 提取公式中涉及的变量，并检查是否都存在于 Metadata
+formula_variables <- all.vars(model_formula)
+missing_formula_variables <- setdiff(formula_variables, colnames(input_metadata))
+
+if (length(missing_formula_variables) > 0) {
+  stop(
+    "模型公式中以下变量不存在于 Metadata：",
+    paste(missing_formula_variables, collapse = ", ")
+  )
+}
+
+# 检查公式涉及的变量是否有缺失值
+# 为避免模型内部因缺失值删样本后造成统计汇总错位，
+# 这里先统一删除公式变量存在缺失值的样本。
+if (length(formula_variables) > 0) {
+  complete_rows <- complete.cases(
+    input_metadata[, formula_variables, drop = FALSE]
+  )
+
+  if (any(!complete_rows)) {
+    cat("由于模型变量存在缺失值，删除样本数：", sum(!complete_rows), "\n")
+    input_metadata <- input_metadata[complete_rows, , drop = FALSE]
+    input_data <- input_data[rownames(input_metadata), , drop = FALSE]
+  }
+}
+
+if (nrow(input_data) < 2) {
+  stop("删除缺失样本后有效样本数少于 2，无法进行分析。")
+}
+
+# 去除全零物种，避免无信息特征进入模型
+nonzero_features <- colSums(input_data, na.rm = TRUE) > 0
+input_data <- input_data[, nonzero_features, drop = FALSE]
+
+if (ncol(input_data) == 0) {
+  stop("过滤后没有非零物种，无法进行分析。")
+}
+
+# 保存原始样本-物种丰度矩阵，用于后续计算各组非零数和均值。
+# 必须使用最终分析样本集合及其顺序，不能再使用未过滤的原始矩阵。
+raw_abundance <- input_data
+
+cat("最终进入模型的数据：\n")
+cat("  样本数：", nrow(input_data), "\n")
+cat("  物种数：", ncol(input_data), "\n")
+cat("  模型公式：", paste(deparse(model_formula), collapse = " "), "\n\n")
+
+# ============================================================
+# 9. 运行 MaAsLin3
+# ============================================================
+
+cat("开始运行 MaAsLin3，请耐心等待...\n")
+
+# 将参数集中管理，方便以后扩展和调整。
+# min_abundance/min_prevalence 是 MaAsLin3 自身的特征过滤参数，
+# 不等同于在原始丰度表上简单按比例过滤。
+maaslin_args <- list(
+  input_data = input_data,
+  input_metadata = input_metadata,
+  output = opt$output,
+  formula = model_formula,
+  min_abundance = opt$min_abundance,
+  min_prevalence = opt$min_prevalence,
+  max_prevalence = opt$max_prevalence,
+  zero_threshold = opt$zero_threshold,
+  min_variance = opt$min_variance,
+  max_significance = opt$max_significance,
+  normalization = toupper(opt$normalization),
+  transform = toupper(opt$transform),
+  correction = opt$correction,
+  standardize = opt$standardize,
+  median_comparison_abundance = opt$median_comparison_abundance,
+  median_comparison_prevalence = opt$median_comparison_prevalence,
+  warn_prevalence = opt$warn_prevalence,
+  augment = opt$augment,
+  max_pngs = opt$max_pngs,
+  save_models = opt$save_models
+)
+
+# 根据当前安装版本的 maaslin3() 函数参数进行筛选，
+# 避免不同版本间少数可选参数差异导致 unused argument 错误。
+maaslin3_formals <- names(formals(maaslin3::maaslin3))
+maaslin_args <- maaslin_args[names(maaslin_args) %in% maaslin3_formals]
+
+fit_out <- do.call(maaslin3::maaslin3, maaslin_args)
+
+cat("\nMaAsLin3 模型运行完成。\n")
+
+# ============================================================
+# 10. 检查并读取 MaAsLin3 原始结果
+# ============================================================
+
+all_results_file <- file.path(opt$output, "all_results.tsv")
+
+if (!file.exists(all_results_file)) {
+  stop(
+    "MaAsLin3 运行结束，但没有找到 all_results.tsv：",
+    all_results_file,
+    "。请检查 MaAsLin3 日志文件和输出目录。"
+  )
+}
+
+# 先读取文件开头，检查文件是否为空以及实际使用的分隔符。
+# 正常的 MaAsLin3 all_results.tsv 应当是制表符分隔文件。
+file_preview <- tryCatch(
+  readLines(all_results_file, n = 5, warn = FALSE),
+  error = function(e) character(0)
+)
+
+if (length(file_preview) == 0 || all(!nzchar(trimws(file_preview)))) {
+  stop(
+    "all_results.tsv 文件为空或无法读取：", all_results_file,
+    "。请检查 MaAsLin3 是否成功完成模型拟合。"
+  )
+}
+
+# 定义一个稳健的结果文件读取函数：
+# 1. 首先按 TSV 读取；
+# 2. 如果只读到一列，则尝试逗号或分号分隔；
+# 3. 清除列名中的 UTF-8 BOM 和首尾空格；
+# 4. 不擅自更改原始列名中的大小写。
+read_maaslin_results <- function(file) {
+
+  # 优先按 MaAsLin3 标准 TSV 格式读取
+  result <- tryCatch(
+    read.delim(
+      file,
+      header = TRUE,
+      sep = "\t",
+      check.names = FALSE,
+      stringsAsFactors = FALSE,
+      #quote = "\""
+      #comment.char = "",
+      quote = '"',
+      comment.char = "",
+      fill = TRUE
+    ),
+    error = function(e) NULL
+  )
+
+  # 如果 TSV 读取后只有一列，说明文件可能不是标准制表符分隔
+  if (is.null(result) || ncol(result) <= 1) {
+
+    # 尝试逗号分隔
+    result_comma <- tryCatch(
+      read.csv(
+        file,
+        header = TRUE,
+        check.names = FALSE,
+        stringsAsFactors = FALSE,
+        quote = "\"",
+        comment.char = "",
+        fill = TRUE
+      ),
+      error = function(e) NULL
+    )
+
+    if (!is.null(result_comma) && ncol(result_comma) > 1) {
+      result <- result_comma
+    }
+  }
+
+  # 如果仍然只有一列，再尝试分号分隔
+  if (is.null(result) || ncol(result) <= 1) {
+    result_semicolon <- tryCatch(
+      read.delim(
+        file,
+        header = TRUE,
+        sep = ";",
+        check.names = FALSE,
+        stringsAsFactors = FALSE,
+        quote = "\"",
+        comment.char = "",
+        fill = TRUE
+      ),
+      error = function(e) NULL
+    )
+
+    if (!is.null(result_semicolon) && ncol(result_semicolon) > 1) {
+      result <- result_semicolon
+    }
+  }
+
+  if (is.null(result)) {
+    stop("无法解析 MaAsLin3 结果文件：", file)
+  }
+
+  # 清理列名中的 BOM 和空格，避免隐藏字符导致字段匹配失败
+  clean_names <- trimws(names(result))
+  clean_names <- sub("^\ufeff", "", clean_names)
+  names(result) <- clean_names
+
+  result
+}
+
+all_results <- read_maaslin_results(all_results_file)
+
+# 兼容部分版本或不同导出方式下的列名大小写差异
+names(all_results) <- tolower(trimws(names(all_results)))
+
+# 兼容少数旧版或经过二次整理的结果文件中的常见字段别名
+column_aliases <- c(
+  "pval" = "pval_individual",
+  "p_value" = "pval_individual",
+  "pvalue" = "pval_individual",
+  "qval" = "qval_individual",
+  "q_value" = "qval_individual",
+  "qvalue" = "qval_individual",
+  "stderr" = "stderr",
+  "standard_error" = "stderr",
+  "std_error" = "stderr"
+)
+
+for (old_name in names(column_aliases)) {
+  new_name <- unname(column_aliases[old_name])
+
+  if (old_name %in% names(all_results) &&
+      !(new_name %in% names(all_results))) {
+    names(all_results)[names(all_results) == old_name] <- new_name
+  }
+}
+
+# 检查必需字段
+required_result_columns <- c(
+  "feature", "metadata", "model", "coef", "stderr",
+  "pval_individual", "qval_individual"
+)
+
+missing_result_columns <- setdiff(
+  required_result_columns,
+  colnames(all_results)
+)
+
+# 如果文件字段不完整，尝试使用 maaslin3() 返回对象中的结果表。
+# 不同版本返回对象的结构可能略有差异，因此先检查对象结构。
+if (length(missing_result_columns) > 0) {
+
+  returned_results <- NULL
+
+  if (is.list(fit_out) && "results" %in% names(fit_out)) {
+    returned_results <- fit_out$results
+  }
+
+  if (is.data.frame(returned_results)) {
+    names(returned_results) <- tolower(trimws(names(returned_results)))
+
+    # 兼容返回对象中可能出现的字段别名
+    for (old_name in names(column_aliases)) {
+      new_name <- unname(column_aliases[old_name])
+
+      if (old_name %in% names(returned_results) &&
+          !(new_name %in% names(returned_results))) {
+        names(returned_results)[
+          names(returned_results) == old_name
+        ] <- new_name
+      }
+    }
+
+    returned_missing <- setdiff(
+      required_result_columns,
+      colnames(returned_results)
+    )
+
+    if (length(returned_missing) == 0) {
+      all_results <- returned_results
+      missing_result_columns <- character(0)
+      message(
+        "提示：all_results.tsv 字段不完整，已改用 fit_out$results 中的结果。"
+      )
+    }
+  }
+}
+
+# 如果仍然无法识别，输出详细诊断信息，而不是只报告缺少字段
+if (length(missing_result_columns) > 0) {
+
+  cat("\n========== all_results.tsv 文件诊断 ==========\n")
+  cat("文件路径：", normalizePath(
+    all_results_file,
+    winslash = "/",
+    mustWork = FALSE
+  ), "\n")
+
+  cat("\n实际读取到的列名：\n")
+  print(colnames(all_results))
+
+  cat("\n文件前 5 行原始内容：\n")
+  cat(paste(file_preview, collapse = "\n"), "\n")
+
+  cat("\n缺少字段：\n")
+  print(missing_result_columns)
+
+  cat("==============================================\n")
+
+  stop(
+    "无法识别 MaAsLin3 结果文件结构。请检查上方打印的实际列名和文件前 5 行。"
+  )
+}
+
+# 不同 MaAsLin3 版本可能没有某些可选诊断字段；
+# 没有时补为 NA，保证后续诊断表可以正常生成。
+optional_result_columns <- c(
+  "value", "name", "error", "n", "n_not_zero"
+)
+
+for (column_name in optional_result_columns) {
+  if (!(column_name %in% colnames(all_results))) {
+    all_results[[column_name]] <- NA
+  }
+}
+
+# 将结果中的特征名称映射回输入文件中的原始 Taxonomy 名称。
+# MaAsLin3 或 R 在部分情况下会将特征名转换为合法变量名，
+# 因此同时尝试原始名称和 make.names() 后的名称。
 feature_map <- data.frame(
-  model_feature = model_features,
-  original_feature = original_features,
+  feature_internal = make.names(colnames(raw_abundance), unique = TRUE),
+  feature_original = colnames(raw_abundance),
   stringsAsFactors = FALSE
 )
 
-colnames(input_data_original) <- model_features
+all_results$feature_original <- all_results$feature
 
-input_data <- input_data_original
+match_internal <- match(all_results$feature, feature_map$feature_internal)
+match_original <- match(all_results$feature, feature_map$feature_original)
 
+use_internal <- !is.na(match_internal)
+all_results$feature_original[use_internal] <-
+  feature_map$feature_original[match_internal[use_internal]]
 
-# ============================================================
-# 9. 设置固定效应和随机效应
-# ============================================================
+use_original <- !use_internal & !is.na(match_original)
+all_results$feature_original[use_original] <-
+  feature_map$feature_original[match_original[use_original]]
 
-fixed_effects <- trimws(
-  unlist(
-    strsplit(
-      opts$fixed_effects,
-      ",",
-      fixed = TRUE
-    )
-  )
+# 将数值字段转换为 numeric，兼容某些版本将数值读成字符的情况
+numeric_result_columns <- c(
+  "coef", "stderr", "pval_individual", "qval_individual", "n", "n_not_zero"
 )
 
-fixed_effects <- fixed_effects[
-  nzchar(fixed_effects)
-]
-
-if (length(fixed_effects) == 0) {
-  stop("至少需要指定一个固定效应")
-}
-
-if (!all(fixed_effects %in% colnames(metadata))) {
-  
-  stop(
-    "以下固定效应在 Metadata 中不存在：",
-    paste(
-      setdiff(fixed_effects, colnames(metadata)),
-      collapse = ", "
-    )
+for (column_name in numeric_result_columns) {
+  all_results[[column_name]] <- suppressWarnings(
+    as.numeric(as.character(all_results[[column_name]]))
   )
-  
 }
-
-random_effects <- character(0)
-
-if (!tolower(opts$random_effects) %in% c("none", "")) {
-  
-  random_effects <- trimws(
-    unlist(
-      strsplit(
-        opts$random_effects,
-        ",",
-        fixed = TRUE
-      )
-    )
-  )
-  
-  random_effects <- random_effects[
-    nzchar(random_effects)
-  ]
-  
-}
-
-if (!all(random_effects %in% colnames(metadata))) {
-  
-  stop(
-    "以下随机效应在 Metadata 中不存在：",
-    paste(
-      setdiff(random_effects, colnames(metadata)),
-      collapse = ", "
-    )
-  )
-  
-}
-
-model_variables <- unique(
-  c(fixed_effects, random_effects)
-)
-
-# ------------------------------------------------------------
-# 9.1 删除模型变量中存在缺失值的样本
-# ------------------------------------------------------------
-
-complete_index <- complete.cases(
-  metadata[, model_variables, drop = FALSE]
-)
-
-metadata <- metadata[
-  complete_index,
-  ,
-  drop = FALSE
-]
-
-# 关键修复：
-# 丰度矩阵必须同步过滤，并严格按照 metadata 的样本顺序排列。
-# 后续所有组内丰度统计都使用这个过滤后的矩阵。
-input_data <- input_data[
-  rownames(metadata),
-  ,
-  drop = FALSE
-]
-
-if (nrow(metadata) < 3) {
-  stop("删除缺失值后有效样本数不足")
-}
-
-# 删除未使用的因子水平
-metadata <- droplevels(metadata)
-
-if (nlevels(metadata$Group) < 2) {
-  stop("删除缺失值后 Group 不足两个分组")
-}
-
-# 再次检查样本顺序
-stopifnot(
-  identical(
-    rownames(input_data),
-    rownames(metadata)
-  )
-)
-
-cat("\n固定效应：\n")
-print(fixed_effects)
-
-cat("\n随机效应：\n")
-print(random_effects)
-
-cat("\n最终分析样本数：", nrow(metadata), "\n")
-
-cat("\n最终各组样本数量：\n")
-print(table(metadata$Group))
-
 
 # ============================================================
-# 10. 设置参考分组
+# 11. 生成总体差异结果表
 # ============================================================
 
-# 示例：
-# -b "Group,Control"
-# -b "Group,Control;Sex,F"
-#
-# MaAsLin3 对分类变量的系数以参考水平为比较基准
+# 主结果表字段固定，方便后续 EasyMetagenome 其他模块调用。
+# N1/N2 表示对应组中该物种的非零样本数，而不是组内总样本数。
+# Mean1/Mean2 表示对应组的原始输入丰度均值。
+# abundance + LOG 模型下 FC = 2^Beta。
+# prevalence 模型的 Beta 是 log-odds，不将其误写为丰度 FC。
 
-reference_string <- trimws(opts$reference)
+safe_numeric <- function(x) {
+  suppressWarnings(as.numeric(as.character(x)))
+}
 
-if (nzchar(reference_string)) {
-  
-  reference_pairs <- strsplit(
-    reference_string,
-    ";",
-    fixed = TRUE
-  )[[1]]
-  
-  for (pair in reference_pairs) {
-    
-    pair_parts <- trimws(
-      strsplit(
-        pair,
-        ",",
-        fixed = TRUE
-      )[[1]]
-    )
-    
-    if (length(pair_parts) != 2) {
-      stop("reference 参数格式错误，应为 Variable,Level")
+result_rows <- vector("list", nrow(all_results))
+
+for (i in seq_len(nrow(all_results))) {
+  one <- all_results[i, , drop = FALSE]
+
+  variable_name <- as.character(one$metadata[1])
+  feature_name <- as.character(one$feature_original[1])
+  model_name <- as.character(one$model[1])
+  group_value <- as.character(one$value[1])
+
+  beta <- safe_numeric(one$coef[1])
+  se <- safe_numeric(one$stderr[1])
+  p_value <- safe_numeric(one$pval_individual[1])
+  fdr_value <- safe_numeric(one$qval_individual[1])
+
+  # 初始化组间统计量
+  n1 <- n2 <- mean1 <- mean2 <- NA_real_
+  reference_value <- NA_character_
+  group_n1 <- group_n2 <- NA_integer_
+
+  # 对分类变量，按当前 factor 的第一个水平作为参考组
+  if (variable_name %in% colnames(input_metadata)) {
+    variable_data <- input_metadata[[variable_name]]
+
+    if (is.factor(variable_data) || is.character(variable_data)) {
+      variable_data <- as.character(variable_data)
+      observed_levels <- if (is.factor(input_metadata[[variable_name]])) {
+        levels(input_metadata[[variable_name]])
+      } else {
+        unique(variable_data[!is.na(variable_data)])
+      }
+
+      observed_levels <- observed_levels[observed_levels %in% variable_data]
+
+      if (length(observed_levels) >= 2 &&
+          !is.na(group_value) && group_value %in% observed_levels) {
+        reference_value <- observed_levels[1]
+
+        group1_samples <- rownames(input_metadata)[
+          !is.na(variable_data) & variable_data == group_value
+        ]
+        group2_samples <- rownames(input_metadata)[
+          !is.na(variable_data) & variable_data == reference_value
+        ]
+
+        if (feature_name %in% colnames(raw_abundance)) {
+          feature_abundance <- raw_abundance[, feature_name]
+
+          values1 <- feature_abundance[group1_samples]
+          values2 <- feature_abundance[group2_samples]
+
+          group_n1 <- length(group1_samples)
+          group_n2 <- length(group2_samples)
+          n1 <- sum(values1 > 0, na.rm = TRUE)
+          n2 <- sum(values2 > 0, na.rm = TRUE)
+          mean1 <- if (length(values1) > 0) mean(values1, na.rm = TRUE) else NA_real_
+          mean2 <- if (length(values2) > 0) mean(values2, na.rm = TRUE) else NA_real_
+        }
+      }
     }
-    
-    variable_name <- pair_parts[1]
-    
-    reference_level <- pair_parts[2]
-    
-    if (!variable_name %in% colnames(metadata)) {
-      stop("参考变量不存在：", variable_name)
-    }
-    
-    if (!is.factor(metadata[[variable_name]])) {
-      stop("参考变量不是分类变量：", variable_name)
-    }
-    
-    if (!reference_level %in% levels(metadata[[variable_name]])) {
-      
-      stop(
-        "参考水平不存在：",
-        variable_name,
-        " = ",
-        reference_level
-      )
-      
-    }
-    
-    # 在 metadata 中同步设置参考水平
-    metadata[[variable_name]] <- stats::relevel(
-      metadata[[variable_name]],
-      ref = reference_level
-    )
-    
   }
-  
-}
 
-cat("\nGroup 参考水平：", levels(metadata$Group)[1], "\n")
+  # 只有 LOG 转换的 abundance 模型，Beta 才能直接换算为 2^Beta 的倍数变化
+  fc <- fc_lower <- fc_upper <- NA_real_
 
-cat(
-  "Group 比较水平：",
-  paste(levels(metadata$Group)[-1], collapse = " / "),
-  "\n"
-)
+  if (identical(tolower(model_name), "abundance") &&
+      identical(toupper(opt$transform), "LOG") &&
+      is.finite(beta)) {
+    fc <- 2^beta
 
+    if (is.finite(se)) {
+      fc_lower <- 2^(beta - 1.96 * se)
+      fc_upper <- 2^(beta + 1.96 * se)
+    }
+  }
 
-# ============================================================
-# 11. 运行 MaAsLin3
-# ============================================================
-
-cat("\n========== 开始 MaAsLin3 分析 ==========\n")
-
-# ------------------------------------------------------------
-# 11.1 组装 MaAsLin3 参数
-# ------------------------------------------------------------
-
-maaslin_args <- list(
-  
-  # 样本 x 物种丰度矩阵
-  input_data = input_data,
-  
-  # 样本 metadata
-  input_metadata = metadata,
-  
-  # 输出目录
-  output = maaslin3_dir,
-  
-  # 固定效应
-  fixed_effects = fixed_effects,
-  
-  # 随机效应
-  random_effects = if (length(random_effects) > 0) {
-    random_effects
-  } else {
-    NULL
-  },
-  
-  # 参考水平
-  reference = if (nzchar(reference_string)) {
-    reference_string
-  } else {
-    NULL
-  },
-  
-  # 丰度过滤
-  min_abundance = opts$min_abundance,
-  
-  # 流行率过滤
-  min_prevalence = opts$min_prevalence,
-  
-  # 标准化方法
-  normalization = normalization,
-  
-  # 转换方法
-  transform = transform_method,
-  
-  # 多重检验校正
-  correction = opts$correction,
-  
-  # 显著性阈值
-  max_significance = opts$max_significance,
-  
-  # 连续变量标准化
-  standardize = TRUE,
-  
-  # 相对丰度组成效应校正
-  median_comparison_abundance = TRUE,
-  
-  # Prevalence 不进行中位数校正
-  median_comparison_prevalence = FALSE,
-  
-  # 生成汇总图
-  plot_summary_plot = TRUE,
-  
-  # 生成关联图
-  plot_associations = TRUE,
-  
-  # 最多绘制的关联图数量
-  max_pngs = 30,
-  
-  # 日志输出等级
-  verbosity = "WARN"
-)
-
-# ------------------------------------------------------------
-# 11.2 根据当前 MaAsLin3 版本添加可选参数
-# ------------------------------------------------------------
-
-available_args <- names(
-  formals(maaslin3::maaslin3)
-)
-
-# augment 对 prevalence logistic 模型可能有帮助
-# 不能解决 abundance 模型中某组完全没有非零样本的问题
-if ("augment" %in% available_args) {
-  maaslin_args$augment <- TRUE
-}
-
-# 保存模型对象，便于后续诊断
-if ("save_models" %in% available_args) {
-  maaslin_args$save_models <- TRUE
-}
-
-# ------------------------------------------------------------
-# 11.3 检查参数兼容性
-# ------------------------------------------------------------
-
-unknown_args <- setdiff(
-  names(maaslin_args),
-  available_args
-)
-
-if (length(unknown_args) > 0) {
-  
-  stop(
-    "当前 MaAsLin3 版本不支持以下参数：",
-    paste(unknown_args, collapse = ", ")
+  result_rows[[i]] <- data.frame(
+    Variable = variable_name,
+    Model = model_name,
+    Group_value = group_value,
+    Reference = reference_value,
+    Feature = feature_name,
+    N1 = n1,
+    N2 = n2,
+    Mean1 = mean1,
+    Mean2 = mean2,
+    Beta = beta,
+    SE = se,
+    P = p_value,
+    FDR = fdr_value,
+    FC = fc,
+    FC_lower = fc_lower,
+    FC_upper = fc_upper,
+    stringsAsFactors = FALSE,
+    check.names = FALSE
   )
-  
 }
 
-# ------------------------------------------------------------
-# 11.4 执行分析
-# ------------------------------------------------------------
-
-fit <- do.call(
-  maaslin3::maaslin3,
-  maaslin_args
-)
-
-cat("\nMaAsLin3 分析完成！\n")
-
-
-# ============================================================
-# 12. 读取 MaAsLin3 结果
-# ============================================================
-
-result_file <- file.path(
-  maaslin3_dir,
-  "all_results.tsv"
-)
-
-if (!file.exists(result_file)) {
-  stop("未找到 MaAsLin3 输出文件：", result_file)
+if (length(result_rows) > 0) {
+  overall_result <- do.call(rbind, result_rows)
+} else {
+  overall_result <- data.frame(
+    Variable = character(), Model = character(), Group_value = character(),
+    Reference = character(), Feature = character(), N1 = numeric(),
+    N2 = numeric(), Mean1 = numeric(), Mean2 = numeric(), Beta = numeric(),
+    SE = numeric(), P = numeric(), FDR = numeric(), FC = numeric(),
+    FC_lower = numeric(), FC_upper = numeric(),
+    stringsAsFactors = FALSE
+  )
 }
 
-maaslin_results <- read.delim(
-  result_file,
-  header = TRUE,
-  sep = "\t",
+# 保证主结果表的列名和顺序固定
+expected_columns <- c(
+  "Variable", "Model", "Group_value", "Reference", "Feature",
+  "N1", "N2", "Mean1", "Mean2", "Beta", "SE", "P", "FDR",
+  "FC", "FC_lower", "FC_upper"
+)
+
+overall_result <- overall_result[, expected_columns, drop = FALSE]
+
+# 按 FDR、P 值排序；NA 排在最后
+if (nrow(overall_result) > 0) {
+  overall_result <- overall_result[
+    order(overall_result$FDR, overall_result$P, na.last = TRUE),
+    , drop = FALSE
+  ]
+}
+
+overall_file <- file.path(opt$output, "MaAsLin3_overall_difference.csv")
+write.csv(
+  overall_result,
+  file = overall_file,
+  row.names = FALSE,
+  na = "NA",
+  fileEncoding = "UTF-8"
+)
+
+cat("总体差异结果已输出：", overall_file, "\n")
+
+# ============================================================
+# 12. 输出模型诊断信息
+# ============================================================
+
+# 将 MaAsLin3 原始结果中的 error、N、N_not_zero 保留下来，
+# 便于判断 NA 是模型不可估计、样本稀疏还是模型拟合错误导致。
+
+diagnostics <- data.frame(
+  Variable = all_results$metadata,
+  Model = all_results$model,
+  Group_value = all_results$value,
+  Feature = all_results$feature_original,
+  Beta = all_results$coef,
+  SE = all_results$stderr,
+  P = all_results$pval_individual,
+  FDR = all_results$qval_individual,
+  MaAsLin3_N = all_results$n,
+  MaAsLin3_N_not_zero = all_results$n_not_zero,
+  Fit_error = all_results$error,
   stringsAsFactors = FALSE,
   check.names = FALSE
 )
 
-# 检查必要字段
-required_result_cols <- c(
-  "feature",
-  "metadata",
-  "value",
-  "coef",
-  "stderr",
-  "pval_individual",
-  "qval_individual",
-  "model"
-)
-
-if (!all(required_result_cols %in% colnames(maaslin_results))) {
-  
-  stop(
-    "MaAsLin3 结果缺少必要字段：",
-    paste(
-      setdiff(
-        required_result_cols,
-        colnames(maaslin_results)
-      ),
-      collapse = ", "
-    )
-  )
-  
-}
-
-# 兼容不同版本的 MaAsLin3
-# 部分版本可能没有输出 error、N 或 N_not_zero 字段
-optional_result_cols <- c(
-  "error",
-  "N",
-  "N_not_zero"
-)
-
-for (col in optional_result_cols) {
-  
-  if (!col %in% colnames(maaslin_results)) {
-    
-    maaslin_results[[col]] <- NA
-    
-  }
-  
-}
-
-# ------------------------------------------------------------
-# 12.1 还原原始物种名称
-# ------------------------------------------------------------
-
-feature_index <- match(
-  maaslin_results$feature,
-  feature_map$model_feature
-)
-
-maaslin_results$feature_original <-
-  feature_map$original_feature[feature_index]
-
-# 检查是否存在无法匹配的物种名称
-if (any(is.na(maaslin_results$feature_original))) {
-  
-  warning(
-    "部分物种名称未能还原，将保留 MaAsLin3 输出的名称"
-  )
-  
-  maaslin_results$feature_original[
-    is.na(maaslin_results$feature_original)
-  ] <- maaslin_results$feature[
-    is.na(maaslin_results$feature_original)
-  ]
-  
-}
-
-
-# ============================================================
-# 13. 计算 FC、置信区间和分组丰度
-# ============================================================
-
-cat("\n========== 汇总统计结果 ==========\n")
-
-# ------------------------------------------------------------
-# 13.1 关键修复：使用过滤后的丰度矩阵
-# ------------------------------------------------------------
-
-# input_data_original 是过滤缺失样本之前的矩阵。
-# 如果直接使用它，可能导致丰度向量与 metadata 的分组索引长度不同。
-#
-# 此处必须使用 input_data，并按照 metadata 的样本顺序排列。
-#
-# input_data 的结构：
-# 行 = 样本
-# 列 = 物种
-
-raw_abundance <- input_data[
-  rownames(metadata),
-  ,
-  drop = FALSE
-]
-
-# 再次检查样本顺序
-stopifnot(
-  identical(
-    rownames(raw_abundance),
-    rownames(metadata)
-  )
-)
-
-# ------------------------------------------------------------
-# 13.2 定义安全数值转换函数
-# ------------------------------------------------------------
-
-get_numeric <- function(x) {
-  
-  suppressWarnings(
-    as.numeric(as.character(x))
-  )
-  
-}
-
-# ------------------------------------------------------------
-# 13.3 定义安全均值函数
-# ------------------------------------------------------------
-
-safe_mean <- function(x) {
-  
-  x <- as.numeric(x)
-  
-  x <- x[is.finite(x)]
-  
-  if (length(x) == 0) {
-    return(NA_real_)
-  }
-  
-  mean(x)
-  
-}
-
-# ------------------------------------------------------------
-# 13.4 定义安全非零样本数函数
-# ------------------------------------------------------------
-
-safe_nonzero <- function(x) {
-  
-  x <- as.numeric(x)
-  
-  sum(
-    is.finite(x) & x > 0
-  )
-  
-}
-
-# ------------------------------------------------------------
-# 13.5 初始化结果列表
-# ------------------------------------------------------------
-
-result_list <- vector(
-  "list",
-  nrow(maaslin_results)
-)
-
-# ------------------------------------------------------------
-# 13.6 按模型结果逐行统计
-# ------------------------------------------------------------
-
-for (i in seq_len(nrow(maaslin_results))) {
-  
-  current <- maaslin_results[i, ]
-  
-  feature <- as.character(
-    current$feature_original
-  )
-  
-  variable <- as.character(
-    current$metadata
-  )
-  
-  model_type <- as.character(
-    current$model
-  )
-  
-  # ----------------------------------------------------------
-  # 获取当前 Feature 对应的原始丰度
-  # ----------------------------------------------------------
-  
-  feature_model_name <- feature_map$model_feature[
-    match(
-      feature,
-      feature_map$original_feature
-    )
-  ]
-  
-  if (length(feature_model_name) == 0 ||
-      is.na(feature_model_name)) {
-    
-    feature_abundance <- rep(
-      NA_real_,
-      nrow(metadata)
-    )
-    
-  } else {
-    
-    feature_abundance <- as.numeric(
-      raw_abundance[[feature_model_name]]
-    )
-    
-  }
-  
-  # 检查丰度向量和 Metadata 样本数是否一致
-  if (length(feature_abundance) != nrow(metadata)) {
-    
-    stop(
-      "Feature 丰度向量与 Metadata 样本数不一致：",
-      feature
-    )
-    
-  }
-  
-  # 获取当前变量
-  if (!variable %in% colnames(metadata)) {
-    
-    stop(
-      "MaAsLin3 结果中的变量不在 Metadata 中：",
-      variable
-    )
-    
-  }
-  
-  variable_data <- metadata[[variable]]
-  
-  # ----------------------------------------------------------
-  # 初始化统计量
-  # ----------------------------------------------------------
-  
-  N1 <- NA_real_
-  N2 <- NA_real_
-  
-  Mean1 <- NA_real_
-  Mean2 <- NA_real_
-  
-  FC <- NA_real_
-  FC_lower <- NA_real_
-  FC_upper <- NA_real_
-  
-  Group_value <- NA_character_
-  Reference <- NA_character_
-  
-  # ----------------------------------------------------------
-  # 13.7 分类变量
-  # ----------------------------------------------------------
-  
-  if (is.factor(variable_data)) {
-    
-    Group_value <- as.character(
-      current$value
-    )
-    
-    # 参考水平以实际 Metadata 因子水平为准
-    Reference <- levels(variable_data)[1]
-    
-    # 只有非参考水平才进行组间统计
-    if (Group_value %in% levels(variable_data) &&
-        Group_value != Reference) {
-      
-      # 比较组
-      group1_index <- variable_data == Group_value
-      
-      # 参考组
-      group2_index <- variable_data == Reference
-      
-      # 避免 NA 逻辑值参与索引
-      group1_index[is.na(group1_index)] <- FALSE
-      
-      group2_index[is.na(group2_index)] <- FALSE
-      
-      # ------------------------------------------------------
-      # 组内非零样本数
-      # ------------------------------------------------------
-      
-      N1 <- safe_nonzero(
-        feature_abundance[group1_index]
-      )
-      
-      N2 <- safe_nonzero(
-        feature_abundance[group2_index]
-      )
-      
-      # ------------------------------------------------------
-      # 组内总样本的平均丰度
-      # ------------------------------------------------------
-      
-      Mean1 <- safe_mean(
-        feature_abundance[group1_index]
-      )
-      
-      Mean2 <- safe_mean(
-        feature_abundance[group2_index]
-      )
-      
-    }
-    
-  } else {
-    
-    # --------------------------------------------------------
-    # 13.8 连续变量
-    # --------------------------------------------------------
-    
-    # 对于连续变量，保留原脚本的统计方式
-    N1 <- safe_nonzero(feature_abundance)
-    
-    Mean1 <- safe_mean(feature_abundance)
-    
-  }
-  
-  # ----------------------------------------------------------
-  # 13.9 提取模型统计量
-  # ----------------------------------------------------------
-  
-  beta <- get_numeric(current$coef)
-  
-  se <- get_numeric(current$stderr)
-  
-  p_value <- get_numeric(current$pval_individual)
-  
-  fdr_value <- get_numeric(current$qval_individual)
-  
-  # ----------------------------------------------------------
-  # 13.10 仅对 abundance 模型计算 FC
-  # ----------------------------------------------------------
-  
-  # LOG 转换为 log2，因此 FC = 2^Beta
-  # 如果使用 PLOG 或 NONE，不能直接将 2^Beta 解释为原始丰度倍数变化。
-  
-  if (tolower(model_type) == "abundance" &&
-      transform_method == "LOG") {
-    
-    if (is.finite(beta)) {
-      
-      FC <- 2^beta
-      
-      if (is.finite(se) && se >= 0) {
-        
-        FC_lower <- 2^(beta - 1.96 * se)
-        
-        FC_upper <- 2^(beta + 1.96 * se)
-        
-      }
-      
-    }
-    
-  }
-  
-  # ----------------------------------------------------------
-  # 13.11 汇总结果
-  # ----------------------------------------------------------
-  
-  result_list[[i]] <- data.frame(
-    
-    Variable = variable,
-    
-    Model = model_type,
-    
-    Group_value = Group_value,
-    
-    Reference = Reference,
-    
-    Feature = feature,
-    
-    N1 = N1,
-    
-    N2 = N2,
-    
-    Mean1 = Mean1,
-    
-    Mean2 = Mean2,
-    
-    Beta = beta,
-    
-    SE = se,
-    
-    P = p_value,
-    
-    FDR = fdr_value,
-    
-    FC = FC,
-    
-    FC_lower = FC_lower,
-    
-    FC_upper = FC_upper,
-    
-    stringsAsFactors = FALSE,
-    
-    check.names = FALSE
-    
-  )
-  
-}
-
-# 合并所有结果
-res <- do.call(
-  rbind,
-  result_list
-)
-
-# 按照变量、模型和 P 值排序
-res <- res[
-  order(
-    res$Variable,
-    res$Model,
-    res$P,
-    na.last = TRUE
-  ),
-]
-
-rownames(res) <- NULL
-
-
-# ============================================================
-# 14. 输出总体差异分析结果
-# ============================================================
-
-output_overall <- file.path(
-  output_dir,
-  "MaAsLin3_overall_difference.csv"
-)
-
-# 保留原有 16 列结构
-# na = "NA" 可以避免缺失值以空白形式输出
-
-write.csv(
-  res,
-  output_overall,
-  row.names = FALSE,
-  na = "NA"
-)
-
-cat(
-  "总体差异分析结果：",
-  output_overall,
-  "\n"
-)
-
-
-# ============================================================
-# 15. 输出 Group 的 enriched/depleted 结果
-# ============================================================
-
-# 仅提取 Group 的 abundance 模型
-plot.data <- res[
-  res$Variable == "Group" &
-    tolower(res$Model) == "abundance",
-  c(
-    "Feature",
-    "Group_value",
-    "Reference",
-    "P",
-    "FDR",
-    "FC"
-  ),
-  drop = FALSE
-]
-
-# 去除无法进行显著性判断的结果
-plot.data <- plot.data[
-  complete.cases(
-    plot.data[, c("P", "FDR", "FC")]
-  ),
-  ,
-  drop = FALSE
-]
-
-# 根据 FC 判断富集或耗竭
-# FC > 1：Group_value 相对于 Reference 丰度升高
-# FC < 1：Group_value 相对于 Reference 丰度降低
-
-plot.data$`NPC association` <- ifelse(
-  
-  plot.data$FDR < opts$max_significance,
-  
+# 根据模型输出字段标记拟合状态，仅用于诊断，不修改统计结果
+# 不将无法估计的 NA 强行填成 0 或其他数值。
+diagnostics$Fit_status <- ifelse(
+  !is.na(diagnostics$Fit_error) & diagnostics$Fit_error != "",
+  "Model_error",
   ifelse(
-    plot.data$FC > 1,
-    "enriched",
+    is.na(diagnostics$Beta), "Not_estimable",
     ifelse(
-      plot.data$FC < 1,
-      "depleted",
-      "opposite directions"
+      is.na(diagnostics$SE), "Missing_SE",
+      ifelse(
+        is.na(diagnostics$P), "Missing_P",
+        ifelse(is.na(diagnostics$FDR), "Missing_FDR", "OK")
+      )
     )
-  ),
-  
-  "not associated"
-  
-)
-
-# 输出
-output_enriched <- file.path(
-  output_dir,
-  "MaAsLin3_enriched_depleted.csv"
-)
-
-write.csv(
-  plot.data,
-  output_enriched,
-  row.names = FALSE,
-  na = "NA"
-)
-
-cat(
-  "Enriched/depleted 结果：",
-  output_enriched,
-  "\n"
-)
-
-
-# ============================================================
-# 16. 输出模型诊断信息
-# ============================================================
-
-cat("\n========== 模型诊断 ==========\n")
-
-# ------------------------------------------------------------
-# 16.1 提取模型错误信息
-# ------------------------------------------------------------
-
-model_error <- as.character(
-  maaslin_results$error
-)
-
-# 将空字符串和字符 NA 转换为真正的 NA
-model_error[
-  is.na(model_error) |
-    model_error == "" |
-    model_error == "NA"
-] <- NA_character_
-
-# ------------------------------------------------------------
-# 16.2 识别模型状态
-# ------------------------------------------------------------
-
-diagnostic_beta <- get_numeric(
-  maaslin_results$coef
-)
-
-diagnostic_se <- get_numeric(
-  maaslin_results$stderr
-)
-
-diagnostic_p <- get_numeric(
-  maaslin_results$pval_individual
-)
-
-diagnostic_fdr <- get_numeric(
-  maaslin_results$qval_individual
-)
-
-fit_status <- rep(
-  "OK",
-  nrow(maaslin_results)
-)
-
-# 存在模型错误
-has_error <- !is.na(model_error)
-
-fit_status[has_error] <- "Model_error"
-
-# Beta 缺失
-idx <- fit_status == "OK" &
-  !is.finite(diagnostic_beta)
-
-fit_status[idx] <- "Not_estimable"
-
-# SE 缺失
-idx <- fit_status == "OK" &
-  !is.finite(diagnostic_se)
-
-fit_status[idx] <- "Missing_SE"
-
-# P 值缺失
-idx <- fit_status == "OK" &
-  !is.finite(diagnostic_p)
-
-fit_status[idx] <- "Missing_P"
-
-# FDR 缺失
-idx <- fit_status == "OK" &
-  !is.finite(diagnostic_fdr)
-
-fit_status[idx] <- "Missing_FDR"
-
-# ------------------------------------------------------------
-# 16.3 整理诊断表
-# ------------------------------------------------------------
-
-diagnostic_result <- data.frame(
-  
-  Variable = maaslin_results$metadata,
-  
-  Model = maaslin_results$model,
-  
-  Group_value = maaslin_results$value,
-  
-  Feature = maaslin_results$feature_original,
-  
-  Beta = diagnostic_beta,
-  
-  SE = diagnostic_se,
-  
-  P = diagnostic_p,
-  
-  FDR = diagnostic_fdr,
-  
-  Model_N = get_numeric(maaslin_results$N),
-  
-  Model_N_not_zero = get_numeric(
-    maaslin_results$N_not_zero
-  ),
-  
-  Fit_status = fit_status,
-  
-  Fit_error = model_error,
-  
-  stringsAsFactors = FALSE
-  
-)
-
-# ------------------------------------------------------------
-# 16.4 添加每组总样本数和非零样本数
-# ------------------------------------------------------------
-
-diagnostic_result$Group_N1 <- NA_real_
-
-diagnostic_result$Group_N2 <- NA_real_
-
-diagnostic_result$N1 <- NA_real_
-
-diagnostic_result$N2 <- NA_real_
-
-diagnostic_result$Mean1 <- NA_real_
-
-diagnostic_result$Mean2 <- NA_real_
-
-for (i in seq_len(nrow(diagnostic_result))) {
-  
-  variable <- as.character(
-    diagnostic_result$Variable[i]
   )
-  
-  group_value <- as.character(
-    diagnostic_result$Group_value[i]
-  )
-  
-  feature <- as.character(
-    diagnostic_result$Feature[i]
-  )
-  
-  if (!variable %in% colnames(metadata)) {
-    next
-  }
-  
-  if (!feature %in% feature_map$original_feature) {
-    next
-  }
-  
-  model_feature <- feature_map$model_feature[
-    match(
-      feature,
-      feature_map$original_feature
-    )
-  ]
-  
-  values <- as.numeric(
-    raw_abundance[[model_feature]]
-  )
-  
-  variable_data <- metadata[[variable]]
-  
-  if (is.factor(variable_data) &&
-      group_value %in% levels(variable_data)) {
-    
-    reference_value <- levels(variable_data)[1]
-    
-    index1 <- variable_data == group_value
-    
-    index2 <- variable_data == reference_value
-    
-    index1[is.na(index1)] <- FALSE
-    
-    index2[is.na(index2)] <- FALSE
-    
-    diagnostic_result$Group_N1[i] <- sum(index1)
-    
-    diagnostic_result$Group_N2[i] <- sum(index2)
-    
-    diagnostic_result$N1[i] <- safe_nonzero(
-      values[index1]
-    )
-    
-    diagnostic_result$N2[i] <- safe_nonzero(
-      values[index2]
-    )
-    
-    diagnostic_result$Mean1[i] <- safe_mean(
-      values[index1]
-    )
-    
-    diagnostic_result$Mean2[i] <- safe_mean(
-      values[index2]
-    )
-    
-  }
-  
-}
+)
 
-# ------------------------------------------------------------
-# 16.5 输出模型诊断文件
-# ------------------------------------------------------------
-
-output_diagnostic <- file.path(
-  output_dir,
+diagnostics_file <- file.path(
+  opt$output,
   "MaAsLin3_model_diagnostics.csv"
 )
 
 write.csv(
-  diagnostic_result,
-  output_diagnostic,
+  diagnostics,
+  file = diagnostics_file,
   row.names = FALSE,
-  na = "NA"
+  na = "NA",
+  fileEncoding = "UTF-8"
 )
 
-# 单独输出模型存在问题的结果
-problem_result <- diagnostic_result[
-  diagnostic_result$Fit_status != "OK",
-  ,
+cat("模型诊断信息已输出：", diagnostics_file, "\n")
+
+# ============================================================
+# 13. 输出 enriched / depleted 结果
+# ============================================================
+
+# 仅使用 abundance 模型，并且只保留 P、FDR、FC 均可用的结果。
+# FC > 1：比较组相对于参考组丰度升高（enriched）。
+# FC < 1：比较组相对于参考组丰度降低（depleted）。
+
+plot_data <- overall_result[
+  !is.na(overall_result$Model) & tolower(overall_result$Model) == "abundance",
+  c("Variable", "Group_value", "Reference", "Feature", "P", "FDR", "FC"),
   drop = FALSE
 ]
 
-write.csv(
-  problem_result,
-  file.path(
-    output_dir,
-    "MaAsLin3_model_problem.csv"
-  ),
-  row.names = FALSE,
-  na = "NA"
-)
-
-# ------------------------------------------------------------
-# 16.6 汇总模型错误信息
-# ------------------------------------------------------------
-
-error_summary <- diagnostic_result[
-  !is.na(diagnostic_result$Fit_error),
-  ,
-  drop = FALSE
+plot_data <- plot_data[
+  is.finite(plot_data$P) &
+    is.finite(plot_data$FDR) &
+    is.finite(plot_data$FC),
+  , drop = FALSE
 ]
 
-if (nrow(error_summary) > 0) {
-  
-  error_summary <- as.data.frame(
-    table(
-      Fit_status = error_summary$Fit_status,
-      Fit_error = error_summary$Fit_error
-    )
+plot_data$Association <- ifelse(
+  plot_data$FDR <= opt$max_significance & plot_data$FC > 1,
+  "enriched",
+  ifelse(
+    plot_data$FDR <= opt$max_significance & plot_data$FC < 1,
+    "depleted",
+    "not_significant"
   )
-  
-  error_summary <- error_summary[
-    error_summary$Freq > 0,
-    ,
-    drop = FALSE
-  ]
-  
-  colnames(error_summary)[3] <- "Feature_number"
-  
-} else {
-  
-  error_summary <- data.frame(
-    Fit_status = character(0),
-    Fit_error = character(0),
-    Feature_number = integer(0)
-  )
-  
-}
+)
+
+plot_data <- plot_data[
+  order(plot_data$FDR, plot_data$P, na.last = TRUE),
+  , drop = FALSE
+]
+
+plot_file <- file.path(
+  opt$output,
+  "MaAsLin3_enriched_depleted.csv"
+)
 
 write.csv(
-  error_summary,
-  file.path(
-    output_dir,
-    "MaAsLin3_error_summary.csv"
-  ),
+  plot_data,
+  file = plot_file,
   row.names = FALSE,
-  na = "NA"
+  na = "NA",
+  fileEncoding = "UTF-8"
 )
 
-cat("\n模型状态分布：\n")
-
-print(
-  table(
-    diagnostic_result$Fit_status,
-    useNA = "ifany"
-  )
-)
-
+cat("Enriched/depleted 结果已输出：", plot_file, "\n")
 
 # ============================================================
-# 17. 统计分析结果
+# 14. 输出分析统计汇总
 # ============================================================
 
-cat("\n========== 分析结果统计 ==========\n")
+cat("\n============================================================\n")
+cat("MaAsLin3 分析完成\n")
+cat("============================================================\n")
+cat("分析样本数：", nrow(input_data), "\n")
+cat("分析物种数：", ncol(input_data), "\n")
+cat("MaAsLin3 结果行数：", nrow(all_results), "\n")
+cat("总体差异结果：", overall_file, "\n")
+cat("模型诊断结果：", diagnostics_file, "\n")
+cat("Enriched/depleted 结果：", plot_file, "\n")
 
-cat(
-  "总关联结果数：",
-  nrow(res),
-  "\n"
-)
+cat("\n模型拟合状态统计：\n")
+print(table(diagnostics$Fit_status, useNA = "ifany"))
 
-cat(
-  "Abundance 结果数：",
-  sum(tolower(res$Model) == "abundance"),
-  "\n"
-)
+cat("\n输出目录：", normalizePath(opt$output, winslash = "/", mustWork = FALSE), "\n")
+cat("============================================================\n")
 
-cat(
-  "Prevalence 结果数：",
-  sum(tolower(res$Model) == "prevalence"),
-  "\n"
-)
-
-cat(
-  "显著 Abundance 结果数：",
-  sum(
-    tolower(res$Model) == "abundance" &
-      !is.na(res$FDR) &
-      res$FDR < opts$max_significance
-  ),
-  "\n"
-)
-
-cat(
-  "显著 Prevalence 结果数：",
-  sum(
-    tolower(res$Model) == "prevalence" &
-      !is.na(res$FDR) &
-      res$FDR < opts$max_significance
-  ),
-  "\n"
-)
-
-cat(
-  "Enriched 数量：",
-  sum(
-    plot.data$`NPC association` == "enriched",
-    na.rm = TRUE
-  ),
-  "\n"
-)
-
-cat(
-  "Depleted 数量：",
-  sum(
-    plot.data$`NPC association` == "depleted",
-    na.rm = TRUE
-  ),
-  "\n"
-)
-
-cat(
-  "模型异常结果数：",
-  nrow(problem_result),
-  "\n"
-)
-
-
-# ============================================================
-# 18. 保存 R 对象
-# ============================================================
-
+# 保存本次运行的关键对象，便于后续在 R 中继续分析
 saveRDS(
   list(
-    result_summary = res,
-    enriched_depleted = plot.data,
-    model_diagnostics = diagnostic_result,
-    model_problem = problem_result,
-    maaslin3_fit = fit,
-    metadata = metadata,
+    options = opt,
     input_data = input_data,
-    feature_map = feature_map
+    input_metadata = input_metadata,
+    fit_out = fit_out,
+    all_results = all_results,
+    overall_result = overall_result,
+    diagnostics = diagnostics
   ),
-  file = file.path(
-    output_dir,
-    "MaAsLin3_analysis.rds"
-  )
+  file = file.path(opt$output, "MaAsLin3_analysis.rds")
 )
 
-
-# ============================================================
-# 19. 分析结束
-# ============================================================
-
-cat("\n========================================\n")
-cat("MaAsLin3 差异分析全部完成！\n")
-cat("========================================\n")
-
-cat("输入丰度表：", opts$input, "\n")
-
-cat("输入 Metadata：", opts$metadata, "\n")
-
-cat("输出目录：", output_dir, "\n")
-
-cat("MaAsLin3 原始结果：", result_file, "\n")
-
-cat("总体结果：", output_overall, "\n")
-
-cat("Enriched/depleted：", output_enriched, "\n")
-
-cat(
-  "模型诊断：",
-  output_diagnostic,
-  "\n"
-)
-
-cat("========================================\n")
+cat("分析对象已保存：", file.path(opt$output, "MaAsLin3_analysis.rds"), "\n")
