@@ -11,6 +11,7 @@
 # 2024/11/12：增加按丰度排序堆叠柱状图功能
 # 2025/11/27：规范代码
 # 2026/5/22：解决代码报错，规范图例显示
+# 2026/11/16：合并 unclassified 和 others，并将 others 固定放在堆叠柱底部
 
 
 # 1.1 程序功能描述和主要步骤
@@ -49,7 +50,7 @@ a = rownames(installed.packages())
 
 # install CRAN
 install_CRAN <- c("ggplot2", "BiocManager", "optparse","patchwork","reshape2","magrittr",
-                  "ggprism", "dplyr", "plyr")
+                  "ggprism", "dplyr", "plyr", "cowplot")
 for (i in install_CRAN) {
   if (!i %in% a)
     install.packages(i, repos = site)
@@ -102,7 +103,7 @@ if(opts$output==""){opts$output=opts$input}
 # 依赖包列表
 package_list <- c(
   "ggplot2", "BiocManager", "optparse","patchwork","reshape2","magrittr",
-  "ggprism", "dplyr", "plyr","scales","grid"
+  "ggprism", "dplyr", "plyr", "cowplot", "scales", "grid"
 )
 
 # 批量安装和加载
@@ -148,53 +149,129 @@ taxonomy <- read.table(
 # 2. 数据处理
 # =========================================
 
-# 按 Taxonomy 合并重复物种
-data <- aggregate(. ~ Taxonomy, data = taxonomy, sum)
+# 将 Taxonomy 转换为字符型，避免因子类型影响后续名称替换
+ taxonomy$Taxonomy <- as.character(taxonomy$Taxonomy)
 
-# 设置行名
-rownames(data) <- data$Taxonomy
-data <- data[, -1]
+# 识别原始分类表中名称包含 unclassified 或 others 的分类
+# 不区分大小写，例如：s__unclassified、g__unclassified、s__others、others
+ is_other <- !is.na(taxonomy$Taxonomy) &
+   grepl("unclassified|others", taxonomy$Taxonomy, ignore.case = TRUE)
 
-# 相对丰度标准化
-data <- apply(data, 2, function(x) x / sum(x))
-data <- as.data.frame(data)
+# 将上述分类统一重命名为 others
+ taxonomy$Taxonomy[is_other] <- "others"
+
+# 按 Taxonomy 合并重复物种，同时将原有 unclassified 和 others 的丰度相加
+ data <- aggregate(. ~ Taxonomy, data = taxonomy, sum)
+
+# 设置行名，并删除 Taxonomy 列
+ rownames(data) <- data$Taxonomy
+ data <- data[, -1, drop = FALSE]
+
+# 相对丰度标准化：每个样本单独除以该样本的丰度总和
+# 对总丰度为 0 的样本保留 0，避免产生 NaN 或 Inf
+ data_matrix <- as.matrix(data)
+ sample_sum <- colSums(data_matrix, na.rm = TRUE)
+ data_matrix <- sweep(data_matrix, 2, sample_sum, FUN = "/")
+ data_matrix[, sample_sum == 0] <- 0
+ data <- as.data.frame(data_matrix, check.names = FALSE)
 
 # =========================================
-# 3. 丰度排序
+# 3. 丰度排序及样本排序
 # =========================================
 
-# 按总丰度降序排列
-mean_sort <- data[order(-rowSums(data)), ]
-mean_sort <- as.data.frame(mean_sort)
+# 按各物种在所有样本中的总相对丰度降序排列
+# 已经合并的 others 不参与 Top N 物种排名
+all_taxa <- rownames(data)
+known_others <- "others" %in% all_taxa
+candidate_taxa <- setdiff(all_taxa, "others")
 
-# 样本按第一物种丰度排序
-mean_sort2 <- t(mean_sort)
-mean_sort2 <- mean_sort2[order(-mean_sort2[,1]), ]
-mean_sort3 <- t(mean_sort2)
-mean_sort3 <- as.data.frame(mean_sort3)
+if (length(candidate_taxa) > 0) {
+  candidate_taxa <- candidate_taxa[
+    order(rowSums(data[candidate_taxa, , drop = FALSE]), decreasing = TRUE)
+  ]
+}
 
 # =========================================
-# 4. Top N物种处理
+# 4. Top N 物种处理
 # =========================================
 
-# Top N + others
-other <- colSums(mean_sort3[opts$legend:nrow(mean_sort3), ])
+# opts$legend 表示图例中最多显示的分类数，包含 others
+# 因此保留 opts$legend - 1 个丰度最高的物种，其余全部并入 others
+# 例如 opts$legend = 6 时，显示 Top 5 物种 + others
+ top_n <- max(as.integer(opts$legend) - 1L, 0L)
+ top_n <- min(top_n, length(candidate_taxa))
 
-mean_sort3 <- mean_sort3[(opts$legend - 1):1, ]
-mean_sort3 <- rbind(other, mean_sort3)
+if (top_n > 0) {
+  top_taxa <- candidate_taxa[seq_len(top_n)]
+} else {
+  top_taxa <- character(0)
+}
 
-rownames(mean_sort3)[1] <- "others"
-mean_sort3 <- as.data.frame(mean_sort3)
+# 未进入 Top N 的物种将与原有 others 合并
+remaining_taxa <- setdiff(candidate_taxa, top_taxa)
+need_others <- known_others || length(remaining_taxa) > 0
+
+if (need_others) {
+  # 初始化 others 在每个样本中的丰度
+  other_values <- setNames(rep(0, ncol(data)), colnames(data))
+
+  # 加入输入文件中原本就存在的 others（其中已包含 unclassified）
+  if (known_others) {
+    other_values <- other_values + as.numeric(data["others", , drop = TRUE])
+    names(other_values) <- colnames(data)
+  }
+
+  # 加入未进入 Top N 的其余物种丰度
+  if (length(remaining_taxa) > 0) {
+    other_values <- other_values + colSums(
+      data[remaining_taxa, , drop = FALSE]
+    )
+  }
+
+  # 构建 others 行，并放在数据矩阵第一行
+  others_df <- as.data.frame(as.list(other_values), check.names = FALSE)
+  rownames(others_df) <- "others"
+
+  if (length(top_taxa) > 0) {
+    data_top <- rbind(others_df, data[top_taxa, , drop = FALSE])
+  } else {
+    data_top <- others_df
+  }
+} else {
+  # 当没有 others 且所有物种均进入 Top N 时，不额外添加 others
+  data_top <- data[top_taxa, , drop = FALSE]
+}
+
+# 按丰度最高的物种对样本排序，保持原脚本的样本排序逻辑
+if (length(top_taxa) > 0) {
+  sample_order <- colnames(data_top)[
+    order(-as.numeric(data_top[top_taxa[1], ]))
+  ]
+} else {
+  sample_order <- colnames(data_top)[
+    order(-as.numeric(data_top["others", ]))
+  ]
+}
+data_top <- data_top[, sample_order, drop = FALSE]
+
+# 明确设置分类顺序：others 第一，其余物种按总丰度从高到低排列
+# 后续绘图将配合 position_stack(reverse = TRUE)，使 others 位于柱子底部
+tax_levels <- rownames(data_top)
 
 # =========================================
 # 5. 转长表
 # =========================================
 
-# 添加 taxonomy 名称
+# 添加 taxonomy 名称，并将矩阵转换为长表
+mean_sort3 <- data_top
 mean_sort3$tax <- rownames(mean_sort3)
 
 data_all <- reshape2::melt(mean_sort3, id.vars = "tax")
 data_all <- as.data.frame(data_all)
+
+# 固定分类因子顺序：others 放在第一位，后续物种按总丰度排序
+# 配合 position_stack(reverse = TRUE)，确保 others 位于堆叠柱底部
+data_all$tax <- factor(data_all$tax, levels = tax_levels)
 
 # group 提取
 data_all$group <- as.character(data_all$variable)
@@ -236,10 +313,14 @@ plots <- lapply(split(data_all2, data_all2$group), function(df) {
     aes(
       x = factor(variable, levels = unique(df$variable)),
       y = value,
-      fill = factor(tax, levels = unique(df$tax))
+      fill = tax
     )
   ) +
-    geom_bar(stat = "identity", position = "stack", width = 1) +
+    geom_bar(
+      stat = "identity",
+      position = position_stack(reverse = TRUE),
+      width = 1
+    ) +
     scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
     theme_classic() +
     labs(x = group_name, y = NULL) +
@@ -250,7 +331,9 @@ plots <- lapply(split(data_all2, data_all2$group), function(df) {
         "#d27e43", "#8a4984", "#fe5094", "#8d342e", "#f94e54",
         "#ffad00", "#36999d", "#00fc8d", "#b64aa0", "#9b82e1"
       ),
-    ) 
+    ) +
+    # 图例从上到下按堆叠柱由顶部到底部排列，others 放在图例最下面
+    guides(fill = guide_legend(reverse = TRUE))
 })
 
 # =========================================
@@ -294,19 +377,22 @@ main_plot <- wrap_plots(
   widths = relative_widths
 )
 
-# 先把 tax 转 factor
-data_all2$tax <- factor(data_all2$tax, levels = unique(data_all2$tax))
+# 再次明确 tax 的因子顺序，确保主图和图例顺序一致
+data_all2$tax <- factor(as.character(data_all2$tax), levels = tax_levels)
 
-# 单独legend图
+# 单独绘制 legend；使用与主图相同的堆叠顺序
 legend_plot <- ggplot(
   data_all2,
   aes(
     x = variable,
     y = value,
-    fill = factor(tax, levels = unique(data_all2$tax))
+    fill = tax
   )
 ) +
-  geom_bar(stat = "identity") +
+  geom_bar(
+    stat = "identity",
+    position = position_stack(reverse = TRUE)
+  ) +
   scale_fill_manual(
     values = c(
       "#e5acd7", "#00ceff", "#ff630d", "#35978b", "#d2da93",
@@ -316,6 +402,8 @@ legend_plot <- ggplot(
     ),
     name = strsplit(basename(opts$output), "[._]")[[1]][1]
   ) +
+  # 图例从上到下按堆叠柱由顶部到底部排列，others 放在图例最下面
+  guides(fill = guide_legend(reverse = TRUE)) +
   theme_classic()+
   theme(
     legend.position = "right",
