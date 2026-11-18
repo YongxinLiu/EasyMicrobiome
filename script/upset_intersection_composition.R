@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Copyright 2024 De-feng Bai <baidefeng@caas.cn>
+# Copyright 2026 De-feng Bai <baidefeng@caas.cn>
 
 # If used this script, please cited:
 # Yong-Xin Liu, Yuan Qin, Tong Chen, Meiping Lu, Xubo Qian, Xiaoxuan Guo, et al. 2021. A practical guide to amplicon and metagenomic analysis of microbiome data. Protein & Cell 12: 315-330. https://doi.org/10.1007/s13238-020-00724-8
@@ -32,11 +32,11 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 # 解析参数-h显示帮助信息
 if (TRUE){
   option_list = list(
-    make_option(c("-c", "--input"), type="character", default="result/eggnog/data_venn2.txt",
+    make_option(c("-i", "--input"), type="character", default="eggnog/data_venn2.txt",
                 help="Unfiltered OTU table [default %default]"),
-    make_option(c("-m", "--composition"), type="character", default="result/eggnog/COGs_data.txt",
-                help="Unfiltered OTU table [default %default]"),
-    make_option(c("-p", "--output"), type="character", default="result/eggnog/",
+    make_option(c("-g", "--group"), type="character", default="Centenarians,Young",
+                help="Group names separated by comma"),
+    make_option(c("-o", "--output"), type="character", default="eggnog/",
                 help="Output MAGs UpSet plot for different databases  [default %default]") 
   )
   opts = parse_args(OptionParser(option_list=option_list))
@@ -56,38 +56,36 @@ if (FALSE){
 suppressWarnings(suppressMessages(library("ggplot2")))
 suppressWarnings(suppressMessages(library("colorspace")))
 suppressWarnings(suppressMessages(library("RColorBrewer")))
-# suppressWarnings(suppressMessages(library("vegan")))
 suppressWarnings(suppressMessages(library("UpSetR")))
 suppressWarnings(suppressMessages(library("VennDiagram")))
 suppressWarnings(suppressMessages(library("formattable")))
 
 # 提取交集信息函数
-get_intersect_members <- function (x, ...){
-  require(dplyr)
-  require(tibble)
-  x <- x[,sapply(x, is.numeric)][,0<=colMeans(x[,sapply(x, is.numeric)],na.rm=T) & colMeans(x[,sapply(x, is.numeric)],na.rm=T)<=1]
-  n <- names(x)
-  x %>% rownames_to_column() -> x
-  l <- c(...)
-  a <- intersect(names(x), l)
-  ar <- vector('list',length(n)+1)
-  ar[[1]] <- x
-  i=2
-  for (item in n) {
-    if (item %in% a){
-      if (class(x[[item]])=='numeric'){ #Now uses numeric instead of integer
-        ar[[i]] <- paste(item, '>= 1')
-        i <- i + 1
-      }
+get_intersect_members <- function(x, ...) {
+  
+  library(dplyr)
+  library(tibble)
+  library(rlang)
+  
+  x <- x[, sapply(x, is.numeric)]
+  
+  x <- rownames_to_column(x, var = "ID")
+  
+  target_groups <- c(...)
+  
+  cond_list <- lapply(names(x)[-1], function(item){
+    
+    if(item %in% target_groups){
+      expr(!!sym(item) >= 1)
     } else {
-      if (class(x[[item]])=='numeric'){
-        ar[[i]] <- paste(item, '== 0')
-        i <- i + 1
-      }
+      expr(!!sym(item) == 0)
     }
-  }
-  do.call(filter_, ar) %>% column_to_rownames() -> x
-  return(x)
+    
+  })
+  
+  x %>%
+    filter(!!!cond_list) %>%
+    column_to_rownames(var = "ID")
 }
 
 
@@ -95,19 +93,81 @@ get_intersect_members <- function (x, ...){
 Data4Pic = read.table(opts$input, header=T, row.names=1)
 Data4Pic[Data4Pic>0] = 1
 
-# 组间交集提取
-write.csv(get_intersect_members(Data4Pic,"Cooling","Mature","Mesophilic","Thermophilic"), file=paste(opts$output, "/COGs_282_01.csv", sep=""))
-write.csv(get_intersect_members(Data4Pic,"Cooling","Mature","Mesophilic"), file=paste(opts$output, "/COGs_45_01.csv", sep=""))
-write.csv(get_intersect_members(Data4Pic,"Cooling","Mature"), file=paste(opts$output, "/Cogs_27_01.csv", sep=""))
+# 解析分组
+target_groups <- unlist(
+  strsplit(opts$group, ",")
+)
 
+print("Target groups:")
+print(target_groups)
+
+# 求交集
+Intersect <- do.call(
+  get_intersect_members,
+  c(list(Data4Pic), as.list(target_groups))
+)
+
+# 提取交集行名
+Intersect_ID <- rownames(Intersect)
+
+# 从原始数据提取
+data <- Data4Pic[Intersect_ID, ]
+
+# 组间交集提取
+write.csv(Intersect, file=paste(opts$output, "/Cogs_01.csv", sep=""))
+
+# 提取COG分类（行名）
+cog <- rownames(data)
+
+# 单字母COG
+single_cog <- cog[nchar(cog) == 1]
+
+# 标准COG顺序
+cog_levels <- c(
+  "E","D","C","T","G","M",
+  "Z","B","K","N","O","P",
+  "A","J","L","Q"
+)
+
+# 统计单字母频数
+tab <- table(factor(single_cog, levels = cog_levels))
+
+# Other
+other_n <- sum(nchar(cog) > 1)
+
+# 合并
+value <- c(as.numeric(tab), other_n)
+
+# 分组名称
+group1 <- c(cog_levels, "Other")
+
+# 构建结果表
+result <- data.frame(
+  COG = group1,
+  value = value
+)
+
+# 计算比例
+result$Rel <- result$value / sum(result$value)
+
+# 百分比
+result$Per <- sprintf("%.2f%%", result$Rel * 100)
+
+# group1列
+result$group1 <- result$COG
+
+# 输出
+print(result)
+
+data1 <- result
 
 # COGs饼图
-data1 <- read.table(opts$composition, header = 1, check.names = F, sep = "\t")
+# data1 <- read.table(opts$composition, header = 1, check.names = F, sep = "\t")
 data1 <- as.data.frame(data1)
 
-data1$group1 <- factor(data1$group, levels = c("E","D","C","T","G","M",
-                                               "Z","B","K","N","O","P",
-                                               "A","J","L","Q","Other"
+data1$group1 <- factor(data1$COG, levels = c("E","D","C","T","G","M",
+                                             "Z","B","K","N","O","P",
+                                             "A","J","L","Q","Other"
 ))
 
 #确定标签位置
@@ -133,4 +193,3 @@ p1 <- ggplot(data1,aes(ymax=ymax,ymin=ymin,
                                "#ffad00","lightgrey","#00fc8d","#b64aa0","#9b82e1"))
 p1
 ggsave(file=paste(opts$output, "Cogs_pie_example.pdf", sep=""), plot = p1, width = 6, height = 6)
-
