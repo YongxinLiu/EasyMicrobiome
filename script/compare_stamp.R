@@ -10,6 +10,7 @@
 # 更新
 # 2024/11/12: 增加利用R语言实现的stamp分析
 # 2025/11/26: 规范格式，p-value矫正方法实现自定义输入
+# 2026/xx/xx: 修复仅 1 个差异物种时 for (i in 1:0) 导致绘图异常的问题
 
 # 1.1 程序功能描述和主要步骤
 
@@ -86,58 +87,58 @@ if (!suppressWarnings(suppressMessages(require("optparse", character.only = TRUE
 
 # 解析参数-h显示帮助信息
 if (TRUE){
-    option_list=list(
-        # 原始OTU表counts值
-        make_option(c("-i", "--input"), type="character", default="metaphlan4/Genus.txt",
-                    help="OTU table in counts;  [default %default]"),
-        # 元数据/实验设计文件
-        make_option(c("-d", "--metadata"), type="character", default="metadata.txt",
-                    help="metadata file;  [default %default]"),
-        # 分组列名     
-        make_option(c("-n", "--group"), type="character", default="Group",
-                    help="Group name;  [default %default]"),
-        # 组间比较
-        make_option(c("-c", "--compare"), type="character", default="Centenarians-Young",
-                    help="Groups comparison;  [default %default]"),
-        # 组间比较方法
-        make_option(c("-m", "--method"), type="character", default="wilcox.test",
-                    help="Compare method, default t.test, alternative wilcox [default %default]"),
-        # 显著性阈值
-        make_option(c("-p", "--pvalue"), type="numeric", default=0.05,
-                    help="Threshold of P-value, [default %default]"),
-        # adjust method
-        make_option(c("-f", "--fdr"), type="character", default="none",
-                    help="adjust methods: holm, hochberg, hommel, bonferroni, BH, BY, fdr, none [default %default]"),
-        # 相对丰度，默认千一
-        make_option(c("-t", "--threshold"), type="numeric", default=0.001,
-                    help="Relative abundance,  [default %default]"),
-        make_option(c("-o", "--output"), type="character", default="metaphlan4/",
-                    help="Output prefix; [default %default]"),
-        # 图片宽mm
-        make_option(c("-w", "--width"), type="numeric", default=89,
-                    help="Figure width;  [default %default]"),
-        # 图片高mm
-        make_option(c("-e", "--height"), type="numeric", default=59,
-                    help="Figure heidth;  [default %default]")
-    )
-    opts=parse_args(OptionParser(option_list=option_list))
-    
-    # 调置如果无调设置输出，根据其它参数设置默认输出
-    if (opts$output==""){
-        opts$output=paste("stamp/",opts$compare, sep="")}
-    
-    # 显示输入输出参数，用户确认是否正确
-    print("Parameters are as follows. Please check it!")
-    print(paste("The input data matrix file is ", opts$input,  sep=""))
-    print(paste("The metadata file is ", opts$metadata,  sep=""))
-    print(paste("Group name is ", opts$group,  sep=""))
-    print(paste("Group compare is ", opts$compare,  sep=""))
-    print(paste("Threshold of P-value is ", opts$pvalue,  sep=""))
-    print(paste("Threshold of FDR is ", opts$fdr,  sep=""))
-    print(paste("Threshold of relative abundance is ", opts$threshold,  sep=""))
-    print(paste("Output figure width ", opts$width,  sep=""))
-    print(paste("Output figure height ", opts$height,  sep=""))
-    print(paste("The output file is ", opts$output, sep=""))
+  option_list=list(
+    # 原始OTU表counts值
+    make_option(c("-i", "--input"), type="character", default="metaphlan4/Genus.txt",
+                help="OTU table in counts;  [default %default]"),
+    # 元数据/实验设计文件
+    make_option(c("-d", "--metadata"), type="character", default="metadata.txt",
+                help="metadata file;  [default %default]"),
+    # 分组列名     
+    make_option(c("-n", "--group"), type="character", default="Group",
+                help="Group name;  [default %default]"),
+    # 组间比较
+    make_option(c("-c", "--compare"), type="character", default="Centenarians-Young",
+                help="Groups comparison;  [default %default]"),
+    # 组间比较方法
+    make_option(c("-m", "--method"), type="character", default="wilcox.test",
+                help="Compare method, default t.test, alternative wilcox [default %default]"),
+    # 显著性阈值
+    make_option(c("-p", "--pvalue"), type="numeric", default=0.05,
+                help="Threshold of P-value, [default %default]"),
+    # adjust method
+    make_option(c("-f", "--fdr"), type="character", default="none",
+                help="adjust methods: holm, hochberg, hommel, bonferroni, BH, BY, fdr, none [default %default]"),
+    # 相对丰度，默认千一
+    make_option(c("-t", "--threshold"), type="numeric", default=0.001,
+                help="Relative abundance,  [default %default]"),
+    make_option(c("-o", "--output"), type="character", default="metaphlan4/",
+                help="Output prefix; [default %default]"),
+    # 图片宽mm
+    make_option(c("-w", "--width"), type="numeric", default=89,
+                help="Figure width;  [default %default]"),
+    # 图片高mm
+    make_option(c("-e", "--height"), type="numeric", default=59,
+                help="Figure heidth;  [default %default]")
+  )
+  opts=parse_args(OptionParser(option_list=option_list))
+  
+  # 调置如果无调设置输出，根据其它参数设置默认输出
+  if (opts$output==""){
+    opts$output=paste("stamp/",opts$compare, sep="")}
+  
+  # 显示输入输出参数，用户确认是否正确
+  print("Parameters are as follows. Please check it!")
+  print(paste("The input data matrix file is ", opts$input,  sep=""))
+  print(paste("The metadata file is ", opts$metadata,  sep=""))
+  print(paste("Group name is ", opts$group,  sep=""))
+  print(paste("Group compare is ", opts$compare,  sep=""))
+  print(paste("Threshold of P-value is ", opts$pvalue,  sep=""))
+  print(paste("Threshold of FDR is ", opts$fdr,  sep=""))
+  print(paste("Threshold of relative abundance is ", opts$threshold,  sep=""))
+  print(paste("Output figure width ", opts$width,  sep=""))
+  print(paste("Output figure height ", opts$height,  sep=""))
+  print(paste("The output file is ", opts$output, sep=""))
 }
 suppressWarnings(dir.create(dirname(opts$output), showWarnings = F))
 
@@ -185,9 +186,9 @@ dat=dat[, rownames(metadata)]
 
 # 标准化为百分比
 if (TRUE){ # normalize
-    norm=t(t(dat)/colSums(dat,na=T)*100)
+  norm=t(t(dat)/colSums(dat,na=T)*100)
 }else{
-    norm=as.matrix(data)
+  norm=as.matrix(data)
 }
 
 # 按丰度筛选标准化特征表和原始值
@@ -211,28 +212,6 @@ data <- t(sub_dat)
 data1 <- data.frame(data, sub_metadata$group)
 colnames(data1) <- c(colnames(data),"Group")
 data1$Group <- as.factor(data1$Group)
-
-# t-test
-# if (opts$method == "t.test"){
-# diff <- data1 %>% 
-#     select_if(is.numeric) %>%
-#     map_df(~ broom::tidy(t.test(. ~ Group,data=data1)), .id='var')
-# # c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")
-# diff$p.value <- p.adjust(diff$p.value, opts$fdr)
-# diff <- diff %>% filter(p.value < opts$pvalue)
-# }
-
-# diff1 <- data1 %>%
-#   select_if(is.numeric) %>%
-#   map_df(~ broom::tidy(wilcox.test(. ~ Group,data=data1)), .id='var')
-# 
-# diff1$p.value <- p.adjust(diff1$p.value, opts$fdr)
-# diff1 <- diff1 %>% dplyr::filter(p.value < opts$pvalue)
-
-# diff1 <- data1 %>%
-#   select_if(is.numeric) %>%
-#   map_df(~ broom::tidy(wilcox.test(. ~ Group, data = data1, conf.int = TRUE, conf.level = 0.95)),
-#          .id = "var")
 
 # 批量差异分析-wilcox方法
 diff1 <- data1 %>%
@@ -263,9 +242,9 @@ diff1 <- diff1 %>% filter(p.value < opts$pvalue)
 
 # 左侧条形图
 abun.bar <- data1[,c(diff1$var,"Group")] %>% 
-    gather(variable,value,-Group) %>% 
-    group_by(variable,Group) %>% 
-    dplyr::summarise(Mean=mean(value))
+  gather(variable,value,-Group) %>% 
+  group_by(variable,Group) %>% 
+  dplyr::summarise(Mean=mean(value))
 
 # 右侧散点图
 diff.mean <- diff1[,c("var","estimate","conf.low","conf.high","p.value")]
@@ -277,33 +256,34 @@ diff.mean <- diff.mean[order(diff.mean$estimate,decreasing=TRUE),]
 cbbPalette <- c("#E69F00", "#56B4E9")
 abun.bar$variable <- factor(abun.bar$variable,levels=rev(diff.mean$var))
 p1 <- ggplot(abun.bar,aes(variable,Mean,fill=Group)) +
-    scale_x_discrete(limits=levels(diff.mean$var)) +
-    coord_flip() +
-    xlab("") +
-    ylab("Mean proportion (%)") +
-    theme(panel.background=element_rect(fill='transparent'),
-          panel.grid=element_blank(),
-          axis.ticks.length=unit(0.4,"lines"), 
-          axis.ticks=element_line(color='black'),
-          axis.line=element_line(colour="black"),
-          axis.title.x=element_text(colour='black', size=12,face="bold"),
-          axis.text=element_text(colour='black',size=10,face="bold"),
-          legend.title=element_blank(),
-          legend.text=element_text(size=12,face="bold",colour="black",
-                                   margin=margin(r=20)),
-          legend.position=c(-1,-0.1),
-          legend.direction="horizontal",
-          legend.key.width=unit(0.8,"cm"),
-          legend.key.height=unit(0.5,"cm"))
+  scale_x_discrete(limits=levels(diff.mean$var)) +
+  coord_flip() +
+  xlab("") +
+  ylab("Mean proportion (%)") +
+  theme(panel.background=element_rect(fill='transparent'),
+        panel.grid=element_blank(),
+        axis.ticks.length=unit(0.4,"lines"), 
+        axis.ticks=element_line(color='black'),
+        axis.line=element_line(colour="black"),
+        axis.title.x=element_text(colour='black', size=12,face="bold"),
+        axis.text=element_text(colour='black',size=10,face="bold"),
+        legend.title=element_blank(),
+        legend.text=element_text(size=12,face="bold",colour="black",
+                                 margin=margin(r=20)),
+        legend.position=c(-1,-0.1),
+        legend.direction="horizontal",
+        legend.key.width=unit(0.8,"cm"),
+        legend.key.height=unit(0.5,"cm"))
 
 
-for (i in 1:(nrow(diff.mean) - 1)) 
-    p1 <- p1 + annotate('rect', xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
-                        fill=ifelse(i %% 2 == 0, 'white', 'gray95'))
+# 修复：仅当差异物种数 > 1 时才加背景条纹
+for (i in seq_len(nrow(diff.mean) - 1)) 
+  p1 <- p1 + annotate('rect', xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
+                      fill=ifelse(i %% 2 == 0, 'white', 'gray95'))
 
 p1 <- p1 + 
-    geom_bar(stat="identity",position="dodge",width=0.7,colour="black") +
-    scale_fill_manual(values=cbbPalette)
+  geom_bar(stat="identity",position="dodge",width=0.7,colour="black") +
+  scale_fill_manual(values=cbbPalette)
 
 
 # 右侧散点图
@@ -311,49 +291,51 @@ diff.mean$var <- factor(diff.mean$var,levels=levels(abun.bar$variable))
 diff.mean$p.value <- signif(diff.mean$p.value,3)
 diff.mean$p.value <- as.character(diff.mean$p.value)
 p2 <- ggplot(diff.mean,aes(var,estimate,fill=Group)) +
-    theme(panel.background=element_rect(fill='transparent'),
-          panel.grid=element_blank(),
-          axis.ticks.length=unit(0.4,"lines"), 
-          axis.ticks=element_line(color='black'),
-          axis.line=element_line(colour="black"),
-          axis.title.x=element_text(colour='black', size=12,face="bold"),
-          axis.text=element_text(colour='black',size=10,face="bold"),
-          axis.text.y=element_blank(),
-          legend.position="none",
-          axis.line.y=element_blank(),
-          axis.ticks.y=element_blank(),
-          plot.title=element_text(size=15,face="bold",colour="black",hjust=0.5)) +
-    scale_x_discrete(limits=levels(diff.mean$var)) +
-    coord_flip() +
-    xlab("") +
-    ylab("Difference in mean proportions (%)") +
-    labs(title="95% confidence intervals") 
+  theme(panel.background=element_rect(fill='transparent'),
+        panel.grid=element_blank(),
+        axis.ticks.length=unit(0.4,"lines"), 
+        axis.ticks=element_line(color='black'),
+        axis.line=element_line(colour="black"),
+        axis.title.x=element_text(colour='black', size=12,face="bold"),
+        axis.text=element_text(colour='black',size=10,face="bold"),
+        axis.text.y=element_blank(),
+        legend.position="none",
+        axis.line.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        plot.title=element_text(size=15,face="bold",colour="black",hjust=0.5)) +
+  scale_x_discrete(limits=levels(diff.mean$var)) +
+  coord_flip() +
+  xlab("") +
+  ylab("Difference in mean proportions (%)") +
+  labs(title="95% confidence intervals") 
 
-for (i in 1:(nrow(diff.mean) - 1)) 
-    p2 <- p2 + annotate('rect', xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
-                        fill=ifelse(i %% 2 == 0, 'white', 'gray95'))
+# 修复：仅当差异物种数 > 1 时才加背景条纹
+for (i in seq_len(nrow(diff.mean) - 1)) 
+  p2 <- p2 + annotate('rect', xmin=i+0.5, xmax=i+1.5, ymin=-Inf, ymax=Inf, 
+                      fill=ifelse(i %% 2 == 0, 'white', 'gray95'))
 
 p2 <- p2 +
-    geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
-                  position=position_dodge(0.8), width=0.5, size=0.5) +
-    geom_point(shape=21,size=3) +
-    scale_fill_manual(values=cbbPalette) +
-    geom_hline(aes(yintercept=0), linetype='dashed', color='black')
+  geom_errorbar(aes(ymin=conf.low, ymax=conf.high), 
+                position=position_dodge(0.8), width=0.5, size=0.5) +
+  geom_point(shape=21,size=3) +
+  scale_fill_manual(values=cbbPalette) +
+  geom_hline(aes(yintercept=0), linetype='dashed', color='black')
 
 
 p3 <- ggplot(diff.mean,aes(var,estimate,fill=Group)) +
-    geom_text(aes(y=0,x=var),label=diff.mean$p.value,
-              hjust=0,fontface="bold",inherit.aes=FALSE,size=3) +
-    geom_text(aes(x=nrow(diff.mean)/2 +0.5,y=0.85),label="P-value (corrected)",
-              srt=90,fontface="bold",size=5) +
-    coord_flip() +
-    ylim(c(0,1)) +
-    theme(panel.background=element_blank(),
-          panel.grid=element_blank(),
-          axis.line=element_blank(),
-          axis.ticks=element_blank(),
-          axis.text=element_blank(),
-          axis.title=element_blank())
+  geom_text(aes(y=0,x=var),label=diff.mean$p.value,
+            hjust=0,fontface="bold",inherit.aes=FALSE,size=3) +
+  # 修复：标题位置固定 x = 1，避免只有 1 行时跑偏
+  geom_text(aes(x=1,y=0.85),label="P-value (corrected)",
+            srt=90,fontface="bold",size=5) +
+  coord_flip() +
+  ylim(c(0,1)) +
+  theme(panel.background=element_blank(),
+        panel.grid=element_blank(),
+        axis.line=element_blank(),
+        axis.ticks=element_blank(),
+        axis.text=element_blank(),
+        axis.title=element_blank())
 
 # 图像拼接
 (p <- p1 + p2 + p3 + plot_layout(widths=c(4,6,2)))
@@ -369,4 +351,3 @@ ggsave(
   dpi = 300,                                
   device = cairo_pdf                        
 )
-
