@@ -1,33 +1,35 @@
-# 易微生物组(EasyMicrobiome)
+# EasyMicrobiome(易微生物组)
+
+Software, scripts and database annotation for EasyAmplicon and EasyMetagenome
 
 易扩增子、易宏基因组等分析流程依赖常用软件、脚本文件和数据库注释文件等。
 
-Popular software, scripts and database annotation for EasyAmplicon and EasyMetagenome
+Version(版本)：EasyMicrobiome v1.26
 
-版本(Version)：EasyMicrobiome v1.25
+Update(更新时间)：2026/11/18
 
-更新时间(Update)：2026/8/4
-
-项目主页(Project homepage): https://github.com/yongxinliu/EasyMicrobiome
+Project homepage(项目主页): https://github.com/yongxinliu/EasyMicrobiome
 
 ## 软件安装(Install)
 
-软件包几乎每个季度会更新生成一次，下载并添加至环境变量至可使用。
-
 The software package will be updated and generated almost every quarter, downloaded and added to the environment variable to make it available.
 
-多种下载软件和数据库的方法：任选其一即可
+软件包几乎每个季度会更新生成一次，下载并添加至环境变量至可使用。
+
 Multiple ways to download software and databases: just choose one
 
+多种下载软件和数据库的方法：任选其一即可
 
-	# 方法1. git下载，可使用wget或主页中直接下载压缩包 （最新）
+
+	# Opt 1. git clone官网
 	git clone https://github.com/YongxinLiu/EasyMicrobiome
 
-  方法2.百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
+  # Opt 2. Baidu NetDisk 百度网盘 https://pan.baidu.com/s/1Ikd_47HHODOqC3Rcx6eJ6Q?pwd=0315
 
-	# 方法3. 备选微生物所下载站 http://nmdc.cn/datadownload 
-	wget -c ftp://download.nmdc.cn/tools/soft/EasyMicrobiome.tar.gz
-	tar xvzf EasyMicrobiome.tar.gz
+	# Opt 3. 官网下载 或 备选微生物所下载站 http://nmdc.cn/datadownload 
+	wget -c ftp://download.nmdc.cn/tools/soft/EasyMicrobiome-master.zip
+	unzip EasyMicrobiome-master.zip
+	mv EasyMicrobiome-master EasyMicrobiome
 
 
 添加linux命令可执行权限
